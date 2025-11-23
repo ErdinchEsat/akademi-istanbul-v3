@@ -36,7 +36,6 @@ import SystemLogs from './features/core/pages/SystemLogs';
 import AuthModal from './features/auth/components/AuthModal';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
-import AIChatAssistant from './features/realtime/components/AIChatAssistant';
 import AccessibilityWidget from './components/ui/AccessibilityWidget';
 
 const AppContent: React.FC = () => {
@@ -270,10 +269,7 @@ const AppContent: React.FC = () => {
           {renderContent()}
         </main>
 
-        {/* Global AI Assistant (Only for logged in users, not in player) */}
-        {user && currentView !== ViewState.COURSE_PLAYER && (
-          <AIChatAssistant />
-        )}
+
 
         {/* Accessibility Widget (Global) */}
         <AccessibilityWidget />

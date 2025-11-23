@@ -1,0 +1,5 @@
+{
+  "name": "Akademi İstanbul Platformu",
+  "description": "Şehir ölçekli, çok kiracılı (multi-tenant) Öğrenim Yönetim Sistemi (LMS). Belediyeler, kurumlar ve bireyler için entegre eğitim, kariyer ve sertifikasyon platformu.",
+  "requestFramePermissions": []
+}

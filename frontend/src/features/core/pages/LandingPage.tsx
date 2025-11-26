@@ -5,10 +5,10 @@ import { MOCK_TENANTS } from '@/utils/constants';
 
 interface LandingPageProps {
   onLoginClick: () => void;
-  onActivationClick: () => void;
+  onRegisterClick: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onActivationClick }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onRegisterClick }) => {
   return (
     <div className="min-h-screen bg-white font-sans">
       {/* Navbar */}
@@ -20,11 +20,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onActivationCli
           </div>
           <div className="flex gap-4">
             <button onClick={onLoginClick} className="text-sm font-semibold text-gray-600 hover:text-indigo-600 transition-colors">Giriş Yap</button>
-            <button onClick={onLoginClick} className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-500/20">
-              Giriş Yap
-            </button>
-            <button onClick={onActivationClick} className="px-6 py-2.5 text-sm font-bold text-indigo-600 bg-white hover:bg-indigo-50 border border-indigo-100 rounded-xl transition-all">
-              Kod ile Başla
+            <button onClick={onRegisterClick} className="px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-500/20">
+              Kayıt Ol
             </button>
           </div>
         </div>
@@ -49,11 +46,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onActivationCli
                 Mesleki eğitimden sınav hazırlığa, sertifikasyonlardan kariyer planlamasına kadar her şey tek bir çatıda.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <button onClick={onLoginClick} className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                <button onClick={onRegisterClick} className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
                   Hemen Başla <ArrowRight className="w-5 h-5" />
                 </button>
-                <button className="flex items-center justify-center gap-2 bg-white text-slate-700 border border-gray-200 px-8 py-4 rounded-xl font-bold hover:bg-gray-50 transition-all">
-                  Kurumsal Başvuru
+                <button onClick={onLoginClick} className="flex items-center justify-center gap-2 bg-white text-slate-700 border border-gray-200 px-8 py-4 rounded-xl font-bold hover:bg-gray-50 transition-all">
+                  Giriş Yap
                 </button>
               </div>
             </div>

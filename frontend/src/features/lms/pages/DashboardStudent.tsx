@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { PlayCircle, Clock, BarChart, Ticket, Zap, Award, Download, ChevronRight, Trophy, ArrowUp, ArrowDown, Minus, Filter } from 'lucide-react';
+import { PlayCircle, Clock, BarChart, Zap, Award, Download, ChevronRight, Trophy, ArrowUp, ArrowDown, Minus, Filter } from 'lucide-react';
 import { MOCK_COURSES, MOCK_BADGES, MOCK_USERS, MOCK_LEADERBOARD, MOCK_TENANTS } from '@/utils/constants';
 import { BarChart as ReBarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
@@ -21,7 +21,6 @@ const data = [
 ];
 
 const DashboardStudent: React.FC<DashboardStudentProps> = ({ onCourseClick, userTenantId }) => {
-  const [activationCode, setActivationCode] = useState('');
   const user = MOCK_USERS.student;
   const currentTenant = MOCK_TENANTS.find(t => t.id === userTenantId);
 
@@ -43,7 +42,7 @@ const DashboardStudent: React.FC<DashboardStudentProps> = ({ onCourseClick, user
 
       {/* Welcome Hero Section */}
       <div className={clsx(
-        "rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-8 transition-all duration-500",
+        "rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden flex items-center gap-8 transition-all duration-500",
         getGradient()
       )}>
 
@@ -75,26 +74,6 @@ const DashboardStudent: React.FC<DashboardStudentProps> = ({ onCourseClick, user
               ? `Kurumunuzun size özel atadığı ${myCourses.length} yeni eğitim modülü bulunuyor. Başarılar dileriz.`
               : 'Bugün kendinize ne katmak istersiniz? İlerlemenizi sürdürün.'}
           </p>
-        </div>
-
-        {/* Activation Code Box */}
-        <div className="relative z-10 bg-white/10 backdrop-blur-md p-5 rounded-2xl border border-white/20 flex flex-col gap-3 w-full md:w-80 shadow-lg">
-          <div className="flex items-center gap-2 text-white/90">
-            <Ticket className="w-4 h-4" />
-            <span className="text-xs font-bold uppercase tracking-wider">Aktivasyon Kodu</span>
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Kodu giriniz..."
-              className="bg-black/20 border border-white/10 placeholder-white/40 text-white text-sm rounded-xl px-4 py-2.5 focus:bg-black/30 focus:ring-1 focus:ring-white/50 focus:border-white/50 w-full transition-all"
-              value={activationCode}
-              onChange={(e) => setActivationCode(e.target.value)}
-            />
-            <button className="bg-white text-slate-900 text-sm font-bold px-4 py-2.5 rounded-xl hover:bg-indigo-50 hover:scale-105 transition-all shadow-md">
-              Ekle
-            </button>
-          </div>
         </div>
       </div>
 

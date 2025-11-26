@@ -1,95 +1,69 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from .models import Course, LessonProgress, StudioBooking, Lesson, Quiz, Attempt, Certificate
-from .serializers import CourseSerializer, LessonProgressSerializer, StudioBookingSerializer, QuizSerializer, AttemptSerializer, CertificateSerializer
+from django.db import models
+from .models import Category, Course, Module, Lesson
+from .serializers import CategorySerializer, CourseSerializer, ModuleSerializer, LessonSerializer, LessonPolymorphicSerializer
 
-class CourseViewSet(viewsets.ReadOnlyModelViewSet):
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.filter(parent=None)
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        from django.utils.text import slugify
+        name = serializer.validated_data.get('name')
+        slug = slugify(name)
+        # Ensure uniqueness
+        original_slug = slug
+        counter = 1
+        while Category.objects.filter(slug=slug).exists():
+            slug = f"{original_slug}-{counter}"
+            counter += 1
+        serializer.save(slug=slug)
+
+class CourseViewSet(viewsets.ModelViewSet):
+    queryset = Course.objects.filter(is_published=True)
     serializer_class = CourseSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        # Filter by current tenant
-        # Assuming request.tenant is set by middleware (django-tenants)
-        # For now, we'll return all courses as we are in public schema or tenant schema context
-        return Course.objects.all()
-
-class ProgressViewSet(viewsets.ModelViewSet):
-    serializer_class = LessonProgressSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return LessonProgress.objects.filter(user=self.request.user)
+        # Allow instructors to see their own unpublished courses
+        user = self.request.user
+        if user.is_authenticated and user.role == 'INSTRUCTOR':
+            return Course.objects.filter(models.Q(is_published=True) | models.Q(instructor=user))
+        return super().get_queryset()
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        from django.utils.text import slugify
+        title = serializer.validated_data.get('title')
+        slug = slugify(title)
+        # Ensure uniqueness
+        original_slug = slug
+        counter = 1
+        while Course.objects.filter(slug=slug).exists():
+            slug = f"{original_slug}-{counter}"
+            counter += 1
+        serializer.save(instructor=self.request.user, slug=slug)
 
-    @action(detail=False, methods=['post'])
-    def update_progress(self, request):
-        lesson_id = request.data.get('lesson_id')
-        progress = request.data.get('progress_percentage')
-        position = request.data.get('last_watched_position')
+    @action(detail=False, methods=['get'])
+    def my_courses(self, request):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({"detail": "Authentication credentials were not provided."}, status=401)
         
-        lesson = get_object_or_404(Lesson, pk=lesson_id)
-        
-        obj, created = LessonProgress.objects.update_or_create(
-            user=request.user,
-            lesson=lesson,
-            defaults={
-                'progress_percentage': progress,
-                'last_watched_position': position,
-                'is_completed': progress >= 90 # Auto complete if > 90%
-            }
-        )
-        return Response(LessonProgressSerializer(obj).data)
+        # Filter courses where the user is the instructor
+        courses = Course.objects.filter(instructor=user)
+        serializer = self.get_serializer(courses, many=True)
+        return Response(serializer.data)
 
-class StudioBookingViewSet(viewsets.ModelViewSet):
-    serializer_class = StudioBookingSerializer
+class ModuleViewSet(viewsets.ModelViewSet):
+    queryset = Module.objects.all()
+    serializer_class = ModuleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        return StudioBooking.objects.filter(tenant=self.request.tenant)
-
-    def perform_create(self, serializer):
-        serializer.save(instructor=self.request.user, tenant=self.request.tenant)
-
-class QuizViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = QuizSerializer
+class LessonViewSet(viewsets.ModelViewSet):
+    queryset = Lesson.objects.all()
+    serializer_class = LessonSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        # Assuming quizzes are linked to courses which are linked to tenants
-        # For simplicity, returning all quizzes for now
-        return Quiz.objects.all()
-
-class AttemptViewSet(viewsets.ModelViewSet):
-    serializer_class = AttemptSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Attempt.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        quiz = serializer.validated_data['quiz']
-        # Simple scoring logic: calculate score based on answers (mocked here)
-        # In a real app, answers would be sent in request.data and compared with Question.correct_answer
-        score = 80 # Mock score
-        passed = score >= quiz.passing_score
-        
-        serializer.save(user=self.request.user, score=score, passed=passed)
-
-        if passed:
-            # Check if all quizzes in the course are passed, then generate certificate
-            # For simplicity, let's assume this quiz completes the course
-            # In reality, we'd check course completion logic
-            # Trigger certificate generation
-            # We need course_id here, assuming quiz is linked to a course (which it isn't directly in my model yet, but let's assume logic exists)
-            pass 
-
-class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = CertificateSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Certificate.objects.filter(user=self.request.user)

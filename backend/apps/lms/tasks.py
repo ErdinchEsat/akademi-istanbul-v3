@@ -1,56 +1,73 @@
+import os
+import subprocess
 from celery import shared_task
-from .models import VideoContent
+from django.conf import settings
+from .models import VideoLesson
 
 @shared_task
-def process_video_task(video_content_id):
+def transcode_video_task(lesson_id):
     try:
-        video = VideoContent.objects.get(id=video_content_id)
-        video.status = 'PROCESSING'
-        video.save()
+        lesson = VideoLesson.objects.get(id=lesson_id)
+        if not lesson.source_file:
+            return "No source file"
 
-        # Mock processing (e.g. ffmpeg would go here)
-        # For now, just copy raw to processed or simulate success
-        import time
-        time.sleep(5) # Simulate work
+        lesson.processing_status = 'PROCESSING'
+        lesson.save()
+
+        # Paths
+        input_path = lesson.source_file.path
         
-        video.status = 'COMPLETED'
-        video.save()
+        # Create output directory for HLS segments
+        file_name = os.path.splitext(os.path.basename(input_path))[0]
+        output_dir = os.path.join(settings.MEDIA_ROOT, 'course_videos', 'hls', file_name)
+        os.makedirs(output_dir, exist_ok=True)
         
-    except VideoContent.DoesNotExist:
-        pass
+        output_playlist = os.path.join(output_dir, 'index.m3u8')
 
-@shared_task
-def generate_certificate_task(user_id, course_id):
-    from django.contrib.auth import get_user_model
-    from .models import Course, Certificate
-    from .utils import generate_certificate_pdf
-    from django.core.files.base import ContentFile
-    import uuid
+        # FFmpeg command for HLS transcoding
+        # -hls_time 10: Segment duration 10 seconds
+        # -hls_list_size 0: Include all segments in playlist
+        # -f hls: Output format
+        command = [
+            'ffmpeg',
+            '-i', input_path,
+            '-profile:v', 'baseline', # Baseline profile for compatibility
+            '-level', '3.0',
+            '-start_number', '0',
+            '-hls_time', '10',
+            '-hls_list_size', '0',
+            '-f', 'hls',
+            output_playlist
+        ]
 
-    User = get_user_model()
-    try:
-        user = User.objects.get(id=user_id)
-        course = Course.objects.get(id=course_id)
+        # Run FFmpeg
+        process = subprocess.run(command, capture_output=True, text=True)
         
-        # Check if certificate already exists
-        if Certificate.objects.filter(user=user, course=course).exists():
-            return
+        if process.returncode != 0:
+            print(f"FFmpeg Error: {process.stderr}")
+            lesson.processing_status = 'FAILED'
+            lesson.save()
+            return f"Transcoding failed: {process.stderr}"
 
-        verification_code = uuid.uuid4()
-        pdf_buffer = generate_certificate_pdf(
-            user.get_full_name(),
-            course.title,
-            "2023-11-23", # TODO: Use current date
-            str(verification_code)
-        )
+        # Update Lesson
+        # Construct URL relative to MEDIA_URL
+        relative_path = os.path.join('course_videos', 'hls', file_name, 'index.m3u8')
+        # Assuming MEDIA_URL is handled by web server or S3
+        # For local dev with django.conf.urls.static, this works.
+        # For S3, we would need to upload the directory to S3. 
+        # Since we are using local filesystem for now (MinIO is in docker but we are using local media root in settings?),
+        # Let's check settings.py later. For now assume local file storage for simplicity or volume mount.
+        
+        lesson.video_url = settings.MEDIA_URL + relative_path
+        lesson.processing_status = 'COMPLETED'
+        lesson.save()
 
-        certificate = Certificate(
-            user=user,
-            course=course,
-            verification_code=verification_code
-        )
-        certificate.pdf_file.save(f"certificate_{user.id}_{course.id}.pdf", ContentFile(pdf_buffer.read()))
-        certificate.save()
+        return "Transcoding completed successfully"
 
-    except (User.DoesNotExist, Course.DoesNotExist):
-        pass
+    except VideoLesson.DoesNotExist:
+        return "Lesson not found"
+    except Exception as e:
+        if 'lesson' in locals():
+            lesson.processing_status = 'FAILED'
+            lesson.save()
+        return f"Error: {str(e)}"

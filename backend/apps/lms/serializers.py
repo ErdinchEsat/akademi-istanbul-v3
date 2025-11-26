@@ -1,95 +1,85 @@
 from rest_framework import serializers
-from .models import Course, Module, Lesson, VideoContent, FileContent, LessonProgress, StudioBooking, Quiz, Question, Attempt, Certificate
+from rest_polymorphic.serializers import PolymorphicSerializer
+from .models import Category, Course, Module, Lesson, VideoLesson, PDFLesson, QuizLesson, HTMLLesson, LiveLesson, Assignment
 
-class VideoContentSerializer(serializers.ModelSerializer):
+class CategorySerializer(serializers.ModelSerializer):
+    children = serializers.SerializerMethodField()
+
     class Meta:
-        model = VideoContent
-        fields = '__all__'
+        model = Category
+        fields = ['id', 'name', 'slug', 'icon', 'children']
+        read_only_fields = ['slug']
 
-class FileContentSerializer(serializers.ModelSerializer):
+    def get_children(self, obj):
+        if obj.children.exists():
+            return CategorySerializer(obj.children.all(), many=True).data
+        return []
+
+class VideoLessonSerializer(serializers.ModelSerializer):
     class Meta:
-        model = FileContent
-        fields = '__all__'
+        model = VideoLesson
+        fields = ['id', 'title', 'order', 'is_preview', 'video_url', 'duration', 'source_file', 'processing_status']
+        read_only_fields = ['processing_status', 'duration']
+        extra_kwargs = {
+            'source_file': {'write_only': True}
+        }
 
+class PDFLessonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PDFLesson
+        fields = ['id', 'title', 'order', 'is_preview', 'file']
+
+class QuizLessonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuizLesson
+        fields = ['id', 'title', 'order', 'module', 'passing_score', 'duration_minutes', 'questions']
+
+class HTMLLessonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HTMLLesson
+        fields = ['id', 'title', 'order', 'is_preview', 'content']
+
+class LiveLessonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LiveLesson
+        fields = ['id', 'title', 'order', 'module', 'start_time', 'end_time', 'meeting_link', 'recording_url']
+
+class AssignmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Assignment
+        fields = ['id', 'title', 'order', 'module', 'due_date', 'points', 'file_submission_required']
+
+# Base Lesson Serializer for the polymorphic mapping
 class LessonSerializer(serializers.ModelSerializer):
-    content = serializers.SerializerMethodField()
-
     class Meta:
         model = Lesson
-        fields = ('id', 'title', 'order', 'duration', 'content')
+        fields = ['id', 'title', 'order', 'module', 'is_preview']
 
-    def get_content(self, obj):
-        if obj.content_type.model == 'videocontent':
-            return VideoContentSerializer(obj.content_object).data
-        elif obj.content_type.model == 'filecontent':
-            return FileContentSerializer(obj.content_object).data
-        return None
+class LessonPolymorphicSerializer(PolymorphicSerializer):
+    model_serializer_mapping = {
+        Lesson: LessonSerializer,
+        VideoLesson: VideoLessonSerializer,
+        PDFLesson: PDFLessonSerializer,
+        QuizLesson: QuizLessonSerializer,
+        HTMLLesson: HTMLLessonSerializer,
+        LiveLesson: LiveLessonSerializer,
+        Assignment: AssignmentSerializer
+    }
 
 class ModuleSerializer(serializers.ModelSerializer):
-    lessons = LessonSerializer(many=True, read_only=True)
+    lessons = LessonPolymorphicSerializer(many=True, read_only=True)
 
     class Meta:
         model = Module
-        fields = ('id', 'title', 'order', 'lessons')
+        fields = ['id', 'course', 'title', 'order', 'description', 'lessons']
 
 class CourseSerializer(serializers.ModelSerializer):
     modules = ModuleSerializer(many=True, read_only=True)
     instructor_name = serializers.CharField(source='instructor.get_full_name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
 
     class Meta:
         model = Course
-        fields = ('id', 'title', 'description', 'instructor_name', 'image', 'modules', 'created_at')
-
-class LessonProgressSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LessonProgress
-        fields = ('lesson', 'is_completed', 'progress_percentage', 'last_watched_position')
-
-class StudioBookingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = StudioBooking
-        fields = '__all__'
-        read_only_fields = ('instructor', 'tenant')
-
-    def validate(self, data):
-        # Check for overlapping bookings
-        start = data['start_time']
-        end = data['end_time']
-        
-        # Simple overlap check
-        qs = StudioBooking.objects.filter(
-            start_time__lt=end,
-            end_time__gt=start
-        )
-        if self.instance:
-            qs = qs.exclude(pk=self.instance.pk)
-            
-        if qs.exists():
-            raise serializers.ValidationError("This time slot is already booked.")
-            
-        return data
-
-class QuestionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Question
-        fields = ('id', 'text', 'choices', 'order')
-
-class QuizSerializer(serializers.ModelSerializer):
-    questions = QuestionSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Quiz
-        fields = ('id', 'title', 'passing_score', 'time_limit', 'questions')
-
-class AttemptSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Attempt
-        fields = ('id', 'quiz', 'score', 'passed', 'completed_at')
-        read_only_fields = ('score', 'passed', 'completed_at')
-
-class CertificateSerializer(serializers.ModelSerializer):
-    course_title = serializers.CharField(source='course.title', read_only=True)
-    
-    class Meta:
-        model = Certificate
-        fields = ('id', 'course', 'course_title', 'issue_date', 'verification_code', 'pdf_file')
+        fields = ['id', 'title', 'slug', 'category', 'category_name', 'instructor', 'instructor_name', 
+                  'description', 'image', 'price', 'is_published', 'created_at', 'modules']
+        read_only_fields = ['slug']

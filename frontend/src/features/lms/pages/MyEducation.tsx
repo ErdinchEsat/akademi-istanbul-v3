@@ -175,7 +175,48 @@ const EbooksList = () => {
 };
 
 const VideosList = ({ onCourseClick }: { onCourseClick: (id: string) => void }) => {
-  // Using MOCK_COURSES but visualizing them as video playlists
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        // Fetch courses (using getCourses for now to show all, or getMyCourses if enrolled)
+        // User said "list trainings added in the academy", implying a catalog view or enrolled view.
+        // Let's use getMyCourses first, if empty maybe fallback or just show empty.
+        // Actually, let's use getCourses to show everything for this demo if getMyCourses is empty.
+        // But the page is "MyEducation". Let's stick to getMyCourses.
+        // If the user is an instructor testing as a student, they might not have enrollments.
+        // I'll use getMyCourses() as it's the correct semantic.
+        // Wait, lmsService.getMyCourses() calls /courses/my_courses/
+        // If that returns empty, I might want to fetch all courses for the demo purpose if the user expects to see something.
+        // But let's assume the user will enroll or has enrolled.
+        // User said "list trainings added in the academy", implying a catalog view.
+        // Switching to getCourses() to show ALL courses to the student.
+        const data = await import('../../../services/lmsService').then(m => m.lmsService.getCourses());
+        setCourses(data);
+      } catch (error) {
+        console.error('Failed to fetch courses', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourses();
+  }, []);
+
+  if (loading) {
+    return <div className="p-12 text-center text-gray-500">Yükleniyor...</div>;
+  }
+
+  if (courses.length === 0) {
+    return (
+      <div className="p-12 text-center text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
+        <p>Henüz kayıtlı olduğunuz bir ders bulunmamaktadır.</p>
+        <p className="text-sm mt-2">Eğitim kataloğundan derslere göz atabilirsiniz.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-sm mb-6 flex items-center gap-3">
@@ -184,40 +225,52 @@ const VideosList = ({ onCourseClick }: { onCourseClick: (id: string) => void }) 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {MOCK_COURSES.map(course => (
+        {courses.map(course => (
           <div
             key={course.id}
             onClick={() => onCourseClick(course.id)}
             className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-blue-300 transition-all group cursor-pointer flex flex-col"
           >
-            <div className="relative h-48">
-              <img src={course.imageUrl} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            <div className="relative h-48 bg-gray-100">
+              {course.image ? (
+                <img
+                  src={typeof course.image === 'string' && !course.image.startsWith('http')
+                    ? `http://localhost:8001${course.image}`
+                    : course.image}
+                  alt={course.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                  <Video className="w-12 h-12 opacity-20" />
+                </div>
+              )}
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                 <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/30 shadow-lg group-hover:scale-110 transition-transform">
                   <PlayCircle className="w-6 h-6 fill-current" />
                 </div>
               </div>
               <div className="absolute bottom-3 right-3 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1">
-                <Video className="w-3 h-3" /> {course.totalModules} Video
+                <Video className="w-3 h-3" /> {course.modules?.length || 0} Modül
               </div>
             </div>
             <div className="p-5 flex flex-col flex-1">
               <div className="mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-                  {course.category}
+                  {course.category_name || 'Genel'}
                 </span>
               </div>
               <h3 className="font-bold text-slate-900 text-lg group-hover:text-blue-600 transition-colors line-clamp-2 mb-1">{course.title}</h3>
-              <p className="text-xs text-gray-500 mb-4">{course.instructor}</p>
+              <p className="text-xs text-gray-500 mb-4">{course.instructor_name || 'Eğitmen'}</p>
 
               <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
                 <div className="flex flex-col w-full mr-4">
                   <div className="flex justify-between text-xs mb-1">
                     <span className="text-gray-500">Tamamlanan</span>
-                    <span className="font-bold text-blue-600">%{course.progress || 0}</span>
+                    <span className="font-bold text-blue-600">%0</span>
                   </div>
                   <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500" style={{ width: `${course.progress || 0}%` }}></div>
+                    <div className="h-full bg-blue-500" style={{ width: `0%` }}></div>
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" />

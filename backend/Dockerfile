@@ -9,9 +9,11 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
+    gcc \
     libpq-dev \
-    netcat-traditional \
+    netcat-openbsd \
+    ffmpeg \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
@@ -21,8 +23,5 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Copy project
 COPY . /app/
 
-# Entrypoint script
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Entrypoint script (will be created later or handled in compose)
+# ENTRYPOINT ["/app/entrypoint.sh"]

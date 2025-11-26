@@ -10,14 +10,14 @@ services:
       - POSTGRES_USER=akademi_user
       - POSTGRES_PASSWORD=akademi_password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - akademi_network
 
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"
     networks:
       - akademi_network
 
@@ -27,7 +27,21 @@ services:
       - discovery.type=single-node
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
-      - "9200:9200"
+      - "9201:9200"
+    networks:
+      - akademi_network
+
+  minio:
+    image: minio/minio
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
     networks:
       - akademi_network
 
@@ -39,16 +53,21 @@ services:
     volumes:
       - ./backend:/app
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - DEBUG=1
       - SECRET_KEY=dev_secret_key
       - DATABASE_URL=postgres://akademi_user:akademi_password@db:5432/akademi_db
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_STORAGE_BUCKET_NAME=akademi-bucket
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
     depends_on:
       - db
       - redis
+      - minio
     networks:
       - akademi_network
 
@@ -56,7 +75,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A config worker -l info
+    command: tail -f /dev/null # celery -A config worker -l info
     volumes:
       - ./backend:/app
     environment:
@@ -65,10 +84,15 @@ services:
       - DATABASE_URL=postgres://akademi_user:akademi_password@db:5432/akademi_db
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_STORAGE_BUCKET_NAME=akademi-bucket
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
     depends_on:
       - db
       - redis
       - backend
+      - minio
     networks:
       - akademi_network
 
@@ -80,9 +104,9 @@ services:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "5173:5173"
+      - "3005:3000"
     environment:
-      - VITE_API_URL=http://backend:8000
+      - VITE_API_URL=http://localhost:8001
     depends_on:
       - backend
     networks:
@@ -94,3 +118,4 @@ networks:
 
 volumes:
   postgres_data:
+  minio_data:

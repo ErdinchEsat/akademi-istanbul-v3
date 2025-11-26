@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Building2, Briefcase, ArrowRight, GraduationCap, Globe, Zap, Search, Filter, X } from 'lucide-react';
+import { Building2, Briefcase, ArrowRight, GraduationCap, Globe, Zap, Search, Filter, X, Ticket } from 'lucide-react';
 import { MOCK_TENANTS } from '@/utils/constants';
 import { Tenant, User } from '@/types';
 import clsx from 'clsx';
@@ -14,6 +13,7 @@ interface AcademySelectionProps {
 const AcademySelection: React.FC<AcademySelectionProps> = ({ user, onSelectTenant, onSelectCareerCenter }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
+  const [activationCode, setActivationCode] = useState('');
 
   const alphabet = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ".split("");
 
@@ -23,6 +23,14 @@ const AcademySelection: React.FC<AcademySelectionProps> = ({ user, onSelectTenan
     const matchesLetter = selectedLetter ? tenant.name.toLocaleUpperCase('tr-TR').startsWith(selectedLetter) : true;
     return matchesSearch && matchesLetter;
   });
+
+  const handleActivationSubmit = async () => {
+    if (!activationCode.trim()) return;
+
+    // TODO: API call to validate and apply activation code
+    console.log('Activating code:', activationCode);
+    // After successful activation, could show a success message or redirect
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -37,6 +45,38 @@ const AcademySelection: React.FC<AcademySelectionProps> = ({ user, onSelectTenan
           <p className="text-xl text-slate-500 max-w-2xl mx-auto">
             Bugün hangi alanda gelişmek istersiniz? Kayıtlı olduğunuz akademiyi seçin veya kariyer fırsatlarını inceleyin.
           </p>
+        </div>
+
+        {/* Activation Code Section */}
+        <div className="bg-gradient-to-br from-indigo-600 to-violet-600 p-6 rounded-2xl shadow-xl text-white">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                <Ticket className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Aktivasyon Kodu</h3>
+                <p className="text-indigo-100 text-sm">Belediyenizden aldığınız kodu girerek eğitimlere erişin.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 w-full md:w-auto">
+              <input
+                type="text"
+                placeholder="Kodu giriniz..."
+                className="bg-white/10 border border-white/20 placeholder-white/40 text-white text-sm rounded-xl px-4 py-3 focus:bg-white/20 focus:ring-2 focus:ring-white/50 focus:border-white/50 w-full md:w-64 transition-all backdrop-blur-sm"
+                value={activationCode}
+                onChange={(e) => setActivationCode(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleActivationSubmit()}
+              />
+              <button
+                onClick={handleActivationSubmit}
+                disabled={!activationCode.trim()}
+                className="bg-white text-indigo-600 text-sm font-bold px-6 py-3 rounded-xl hover:bg-indigo-50 hover:scale-105 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                Etkinleştir
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Main Grid */}

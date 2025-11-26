@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { createBrowserRouter, Navigate, useParams, useNavigate, Outlet, useSearchParams, useOutletContext } from 'react-router-dom';
 import { UserRole } from './types';
@@ -11,6 +10,7 @@ import AuthLayout from './layouts/AuthLayout';
 
 // Components
 import AuthModal from './features/auth/components/AuthModal';
+import RegisterModal from './features/auth/components/RegisterModal';
 
 // Pages
 import LandingPage from './features/core/pages/LandingPage';
@@ -19,9 +19,9 @@ import DashboardAdmin from './features/lms/pages/DashboardAdmin';
 import CoursePlayer from './features/lms/pages/CoursePlayer';
 import CareerCenter from './features/career/pages/CareerCenter';
 import CourseCatalog from './features/lms/pages/CourseCatalog';
+import CourseCreate from './features/lms/pages/CourseCreate';
 import Certificates from './features/lms/pages/Certificates';
 import UserManagement from './features/core/pages/UserManagement';
-import ActivationPage from './features/auth/pages/ActivationPage';
 import ReportsAnalytics from './features/career/pages/ReportsAnalytics';
 import AcademySelection from './features/core/pages/AcademySelection';
 import Settings from './features/core/pages/Settings';
@@ -38,9 +38,10 @@ import GrantApplications from './features/career/pages/GrantApplications';
 import StudentAnalytics from './features/career/pages/StudentAnalytics';
 import SystemLogs from './features/core/pages/SystemLogs';
 
-// Root Layout with AuthModal
+// Root Layout with AuthModal and RegisterModal
 const RootLayout = () => {
     const [isAuthModalOpen, setAuthModalOpen] = React.useState(false);
+    const [isRegisterModalOpen, setRegisterModalOpen] = React.useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -51,8 +52,8 @@ const RootLayout = () => {
         }
     }, [searchParams]);
 
-    const handleLogin = (role: UserRole) => {
-        login(role);
+    const handleLogin = async (role: UserRole) => {
+        await login(role);
         setAuthModalOpen(false);
         setSearchParams({});
         navigate('/akademi-secimi');
@@ -60,15 +61,25 @@ const RootLayout = () => {
 
     return (
         <>
-            <Outlet context={{ setAuthModalOpen }} />
-            <AuthModal
-                isOpen={isAuthModalOpen}
-                onClose={() => {
-                    setAuthModalOpen(false);
-                    setSearchParams({});
-                }}
-                onLogin={handleLogin}
-            />
+            <Outlet context={{ setAuthModalOpen, setRegisterModalOpen }} />
+            {isAuthModalOpen && (
+                <AuthModal
+                    onClose={() => {
+                        setAuthModalOpen(false);
+                        setSearchParams({});
+                    }}
+                    onLogin={handleLogin}
+                />
+            )}
+            {isRegisterModalOpen && (
+                <RegisterModal
+                    onClose={() => setRegisterModalOpen(false)}
+                    onSuccess={() => {
+                        setRegisterModalOpen(false);
+                        setAuthModalOpen(true); // Open login after success
+                    }}
+                />
+            )}
         </>
     );
 };
@@ -89,6 +100,15 @@ const CoursePlayerWrapper = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
     return <CoursePlayer courseId={courseId || null} onBack={() => navigate(-1)} />;
+};
+
+const CourseCreateWrapper = () => {
+    const { user } = useAuth();
+    if (!user) return <Navigate to="/" />;
+    if (user.role !== UserRole.ADMIN && user.role !== UserRole.INSTRUCTOR && user.role !== UserRole.TENANT_ADMIN) {
+        return <Navigate to="/dashboard" />;
+    }
+    return <CourseCreate />;
 };
 
 const StudentAnalyticsWrapper = () => {
@@ -117,7 +137,17 @@ const EducationWrapper = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
 
-    const validCategory = category as 'ebooks' | 'videos' | 'live' | 'assignments' | 'quizzes' | 'exams';
+    // Map Turkish URL slugs to English category keys
+    const categoryMap: Record<string, 'ebooks' | 'videos' | 'live' | 'assignments' | 'quizzes' | 'exams'> = {
+        'kitaplar': 'ebooks',
+        'videolar': 'videos',
+        'canli': 'live',
+        'odevler': 'assignments',
+        'quizler': 'quizzes',
+        'sinavlar': 'exams'
+    };
+
+    const validCategory = categoryMap[category || ''] || 'ebooks';
 
     if (user?.role === UserRole.INSTRUCTOR) {
         return <EducationManager category={validCategory} />;
@@ -170,12 +200,30 @@ const AcademySelectionRoute = () => {
 };
 
 const LandingPageWrapper = () => {
-    const { setAuthModalOpen } = useOutletContext<{ setAuthModalOpen: (open: boolean) => void }>();
+    const { setAuthModalOpen, setRegisterModalOpen } = useOutletContext<{
+        setAuthModalOpen: (open: boolean) => void;
+        setRegisterModalOpen: (open: boolean) => void;
+    }>();
+    const { user, loading } = useAuth();
     const navigate = useNavigate();
+
+    React.useEffect(() => {
+        if (!loading && user) {
+            navigate('/akademi-secimi');
+        }
+    }, [user, loading, navigate]);
+
+    if (loading) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-white">
+                <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
 
     return <LandingPage
         onLoginClick={() => setAuthModalOpen(true)}
-        onActivationClick={() => navigate('/aktivasyon')}
+        onRegisterClick={() => setRegisterModalOpen(true)}
     />;
 };
 
@@ -187,10 +235,6 @@ export const router = createBrowserRouter([
             {
                 path: '/',
                 element: <LandingPageWrapper />,
-            },
-            {
-                path: '/aktivasyon',
-                element: <ActivationPage />,
             },
             {
                 element: <AuthLayout />,
@@ -207,6 +251,7 @@ export const router = createBrowserRouter([
                     { path: 'dashboard', element: <DashboardHome /> },
                     { path: 'yonetim', element: <DashboardAdmin /> },
                     { path: 'egitim/katalog', element: <CourseCatalogWrapper /> },
+                    { path: 'egitim/ekle', element: <CourseCreateWrapper /> },
                     { path: 'egitim/oynatici/:courseId', element: <CoursePlayerWrapper /> },
                     { path: 'kariyer', element: <CareerCenter /> },
                     { path: 'kariyer/hibeler', element: <GrantApplications /> },

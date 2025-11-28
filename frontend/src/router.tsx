@@ -1,42 +1,54 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { createBrowserRouter, Navigate, useParams, useNavigate, Outlet, useSearchParams, useOutletContext } from 'react-router-dom';
 import { UserRole } from './types';
 import { useAuth } from './contexts/AuthContext';
 import { useTenant } from './contexts/TenantContext';
 
-// Layouts
+// Layouts (keep eager - needed for layout structure)
 import DashboardLayout from './layouts/DashboardLayout';
 import AuthLayout from './layouts/AuthLayout';
 
-// Components
+// Components (keep eager - used globally)
 import AuthModal from './features/auth/components/AuthModal';
 import RegisterModal from './features/auth/components/RegisterModal';
 
-// Pages
-import LandingPage from './features/core/pages/LandingPage';
-import DashboardStudent from './features/lms/pages/DashboardStudent';
-import DashboardAdmin from './features/lms/pages/DashboardAdmin';
-import CoursePlayer from './features/lms/pages/CoursePlayer';
-import CareerCenter from './features/career/pages/CareerCenter';
-import CourseCatalog from './features/lms/pages/CourseCatalog';
-import CourseCreate from './features/lms/pages/CourseCreate';
-import Certificates from './features/lms/pages/Certificates';
-import UserManagement from './features/core/pages/UserManagement';
-import ReportsAnalytics from './features/career/pages/ReportsAnalytics';
-import AcademySelection from './features/core/pages/AcademySelection';
-import Settings from './features/core/pages/Settings';
-import SupportFAQ from './features/core/pages/SupportFAQ';
-import MyEducation from './features/lms/pages/MyEducation';
-import EducationManager from './features/lms/pages/EducationManager';
-import StudioBooking from './features/lms/pages/instructor/StudioBooking';
-import Cart from './features/commerce/pages/Cart';
-import Invoices from './features/commerce/pages/Invoices';
-import Checkout from './features/commerce/pages/Checkout';
-import PaymentSuccess from './features/commerce/pages/PaymentSuccess';
-import PaymentFailure from './features/commerce/pages/PaymentFailure';
-import GrantApplications from './features/career/pages/GrantApplications';
-import StudentAnalytics from './features/career/pages/StudentAnalytics';
-import SystemLogs from './features/core/pages/SystemLogs';
+// Loading Fallback Component
+const PageLoader = () => (
+    <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+);
+
+// Lazy-loaded Pages (Code Splitting for Performance)
+const LandingPage = React.lazy(() => import('./features/core/pages/LandingPage'));
+const DashboardStudent = React.lazy(() => import('./features/lms/pages/DashboardStudent'));
+const DashboardAdmin = React.lazy(() => import('./features/lms/pages/DashboardAdmin'));
+const CoursePlayer = React.lazy(() => import('./features/lms/pages/CoursePlayer'));
+const CareerCenter = React.lazy(() => import('./features/career/pages/CareerCenter'));
+const CourseCatalog = React.lazy(() => import('./features/lms/pages/CourseCatalog'));
+const CourseCreate = React.lazy(() => import('./features/lms/pages/CourseCreate'));
+const Certificates = React.lazy(() => import('./features/lms/pages/Certificates'));
+const UserManagement = React.lazy(() => import('./features/core/pages/UserManagement'));
+const ReportsAnalytics = React.lazy(() => import('./features/career/pages/ReportsAnalytics'));
+const AcademySelection = React.lazy(() => import('./features/core/pages/AcademySelection'));
+const Settings = React.lazy(() => import('./features/core/pages/Settings'));
+const SupportFAQ = React.lazy(() => import('./features/core/pages/SupportFAQ'));
+const MyEducation = React.lazy(() => import('./features/lms/pages/MyEducation'));
+const EducationManager = React.lazy(() => import('./features/lms/pages/EducationManager'));
+const StudioBooking = React.lazy(() => import('./features/lms/pages/instructor/StudioBooking'));
+const LiveClassManager = React.lazy(() => import('./features/lms/pages/instructor/LiveClassManager'));
+const AssignmentManager = React.lazy(() => import('./features/lms/pages/instructor/AssignmentManager'));
+const QuizManager = React.lazy(() => import('./features/lms/pages/instructor/QuizManager'));
+const ExamManager = React.lazy(() => import('./features/lms/pages/instructor/ExamManager'));
+const Cart = React.lazy(() => import('./features/commerce/pages/Cart'));
+const Invoices = React.lazy(() => import('./features/commerce/pages/Invoices'));
+const Checkout = React.lazy(() => import('./features/commerce/pages/Checkout'));
+const PaymentSuccess = React.lazy(() => import('./features/commerce/pages/PaymentSuccess'));
+const PaymentFailure = React.lazy(() => import('./features/commerce/pages/PaymentFailure'));
+const GrantApplications = React.lazy(() => import('./features/career/pages/GrantApplications'));
+const StudentAnalytics = React.lazy(() => import('./features/career/pages/StudentAnalytics'));
+const SystemLogs = React.lazy(() => import('./features/core/pages/SystemLogs'));
+
 
 // Root Layout with AuthModal and RegisterModal
 const RootLayout = () => {
@@ -81,6 +93,15 @@ const RootLayout = () => {
                 />
             )}
         </>
+    );
+};
+
+// Suspense Wrapper Helper - wraps lazy components
+const withSuspense = (Component: React.LazyExoticComponent<React.ComponentType<any>>) => {
+    return (props: any) => (
+        <Suspense fallback={<PageLoader />}>
+            <Component {...props} />
+        </Suspense>
     );
 };
 
@@ -270,7 +291,13 @@ export const router = createBrowserRouter([
                     { path: 'odeme', element: <CheckoutWrapper /> },
                     { path: 'odeme/basarili', element: <PaymentSuccessWrapper /> },
                     { path: 'odeme/hata', element: <PaymentFailureWrapper /> },
+                    { path: 'egitimlerim/kurs-olustur', element: <EducationManager category="documents" /> },
                     { path: 'egitimlerim/:category', element: <EducationWrapper /> },
+                    // Instructor Pages
+                    { path: 'ogretmen/canli-dersler', element: <LiveClassManager /> },
+                    { path: 'ogretmen/odevler', element: <AssignmentManager /> },
+                    { path: 'ogretmen/quizler', element: <QuizManager /> },
+                    { path: 'ogretmen/sinavlar', element: <ExamManager /> },
                 ]
             }
         ]

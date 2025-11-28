@@ -21,8 +21,7 @@ interface CourseWizardProps {
 
 const STEPS = [
     { id: 1, title: 'Temel Bilgiler', icon: BookOpen },
-    { id: 2, title: 'Müfredat Planlama', icon: ClipboardList },
-    { id: 3, title: 'İçerik Ekleme', icon: Video },
+    { id: 2, title: 'İçerik Yönetimi', icon: Video },
 ];
 
 export const CourseWizard: React.FC<CourseWizardProps> = ({
@@ -37,6 +36,7 @@ export const CourseWizard: React.FC<CourseWizardProps> = ({
 }) => {
     const [currentStep, setCurrentStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [addingWeek, setAddingWeek] = useState(false);
 
     // Step 1: Basic Info
     const [courseData, setCourseData] = useState({
@@ -56,6 +56,14 @@ export const CourseWizard: React.FC<CourseWizardProps> = ({
     // Created Course & Modules Refs
     const [createdCourse, setCreatedCourse] = useState<Course | null>(initialData || null);
     const [createdModules, setCreatedModules] = useState<Module[]>(initialData?.modules || []);
+
+    // Update createdCourse and createdModules when initialData changes (e.g., after lesson update)
+    React.useEffect(() => {
+        if (initialData) {
+            setCreatedCourse(initialData);
+            setCreatedModules(initialData.modules || []);
+        }
+    }, [initialData]);
 
     const handleBasicSubmit = async () => {
         if (!courseData.title || !courseData.category) return;
@@ -138,7 +146,7 @@ export const CourseWizard: React.FC<CourseWizardProps> = ({
                 onCourseUpdated({ ...createdCourse, modules: updatedModulesList });
             }
 
-            setCurrentStep(3);
+            // Step 2 is the last step now, no need to navigate
         } catch (error) {
             console.error('Module save failed', error);
         } finally {
@@ -146,65 +154,189 @@ export const CourseWizard: React.FC<CourseWizardProps> = ({
         }
     };
 
+    // Add new week and immediately save to backend
+    const handleAddWeek = async () => {
+        if (!createdCourse) return;
+
+        setAddingWeek(true);
+        const newWeekTitle = `${modules.length + 1}. Hafta`;
+
+        try {
+            // Create module in backend immediately
+            const newModule = await lmsService.createModule(createdCourse.id, {
+                title: newWeekTitle,
+                description: '',
+                order: modules.length + 1
+            });
+
+            // Update both modules and createdModules states
+            const newModuleData = { title: newModule.title, description: newModule.description || '', id: newModule.id };
+            setModules(prev => [...prev, newModuleData]);
+            setCreatedModules(prev => [...prev, newModule]);
+
+            // Notify parent about the update
+            if (onCourseUpdated && createdCourse) {
+                onCourseUpdated({ ...createdCourse, modules: [...createdModules, newModule] });
+            }
+
+            // Scroll to new week
+            setTimeout(() => {
+                const weekCards = document.querySelectorAll('[data-week-card]');
+                weekCards[weekCards.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        } catch (error) {
+            console.error('Failed to add week', error);
+        } finally {
+            setAddingWeek(false);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full">
-            {/* Wizard Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-white sticky top-0 z-10">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Yeni Eğitim Oluştur</h2>
-                    <p className="text-slate-500 text-sm">Adım adım eğitim içeriğinizi hazırlayın.</p>
+            {/* Modal Header - Modernized with Navigation */}
+            <div className="relative overflow-hidden p-6 border-b border-gray-100 bg-gradient-to-r from-white via-indigo-50/30 to-purple-50/30">
+                <div className="flex items-center justify-between">
+                    {/* Left: Back Button */}
+                    {currentStep > 1 && (
+                        <button
+                            onClick={() => setCurrentStep(prev => prev - 1)}
+                            className="flex items-center gap-2 px-4 py-2 text-slate-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
+                        >
+                            <ChevronLeft size={20} /> Geri
+                        </button>
+                    )}
+                    {currentStep === 1 && <div className="w-24"></div>}
+
+                    {/* Center: Step Progress */}
+                    <div className="flex items-center gap-2">
+                        {STEPS.map((s, i) => {
+                            const StepIcon = s.icon;
+                            const isActive = currentStep === s.id;
+                            const isCompleted = currentStep > s.id;
+
+                            return (
+                                <React.Fragment key={s.id}>
+                                    <div className="flex items-center gap-3 group">
+                                        <div className={clsx(
+                                            "relative w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300",
+                                            isActive && "bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-200 scale-110",
+                                            isCompleted && "bg-gradient-to-br from-green-500 to-emerald-500 text-white",
+                                            !isActive && !isCompleted && "bg-gray-100 text-gray-400 group-hover:bg-gray-200"
+                                        )}>
+                                            {isCompleted ? (
+                                                <CheckCircle2 className="w-5 h-5" />
+                                            ) : (
+                                                <StepIcon className="w-5 h-5" />
+                                            )}
+                                            {isActive && (
+                                                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-400 animate-ping opacity-20" />
+                                            )}
+                                        </div>
+                                        <div className="hidden md:block">
+                                            <div className={clsx(
+                                                "text-sm font-bold transition-colors",
+                                                isActive && "text-indigo-600",
+                                                isCompleted && "text-green-600",
+                                                !isActive && !isCompleted && "text-gray-400"
+                                            )}>
+                                                {s.title}
+                                            </div>
+                                            <div className="text-xs text-gray-400">
+                                                Adım {s.id}/2
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {i < STEPS.length - 1 && (
+                                        <div className="flex-1 h-1 mx-2 bg-gray-100 rounded-full overflow-hidden min-w-[40px] max-w-[100px]">
+                                            <div
+                                                className={clsx(
+                                                    "h-full rounded-full transition-all duration-500",
+                                                    currentStep > s.id
+                                                        ? "w-full bg-gradient-to-r from-green-400 to-emerald-400"
+                                                        : "w-0 bg-gradient-to-r from-indigo-400 to-purple-400"
+                                                )}
+                                            />
+                                        </div>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
+                    </div>
+
+                    {/* Right: Action Buttons */}
+                    <div className="flex items-center gap-2">
+                        {currentStep === 1 && (
+                            <button
+                                onClick={handleBasicSubmit}
+                                disabled={loading || !courseData.title || !courseData.category}
+                                className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Devam Et <ChevronRight size={18} />
+                            </button>
+                        )}
+                        {currentStep === 2 && (
+                            <button
+                                onClick={() => {
+                                    handleModulesSubmit();
+                                    onComplete();
+                                }}
+                                disabled={loading}
+                                className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white font-medium rounded-xl hover:bg-green-700 shadow-md transition-all disabled:opacity-50"
+                            >
+                                Tamamla <CheckCircle2 size={18} />
+                            </button>
+                        )}
+                        <button onClick={onCancel} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
-                <div className="flex items-center gap-4">
-                    {STEPS.map((s, i) => (
-                        <div key={s.id} className="flex items-center gap-2">
-                            <div className={clsx(
-                                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors",
-                                currentStep === s.id ? "bg-indigo-600 text-white" :
-                                    currentStep > s.id ? "bg-green-500 text-white" : "bg-gray-100 text-gray-400"
-                            )}>
-                                {currentStep > s.id ? <CheckCircle2 size={16} /> : s.id}
-                            </div>
-                            <span className={clsx(
-                                "text-sm font-medium hidden md:block",
-                                currentStep === s.id ? "text-indigo-600" : "text-gray-400"
-                            )}>{s.title}</span>
-                            {i < STEPS.length - 1 && <div className="w-8 h-0.5 bg-gray-100 mx-2 hidden md:block" />}
-                        </div>
-                    ))}
-                </div>
-                <button onClick={onCancel} className="p-2 hover:bg-gray-100 rounded-full text-gray-400">
-                    <X size={20} />
-                </button>
             </div>
 
-            {/* Content Area */}
+            {/* Content Area - More Spacious */}
             <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
-                <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-10">
 
                     {/* STEP 1: BASIC INFO */}
                     {currentStep === 1 && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Eğitim Başlığı</label>
-                                <input
-                                    type="text"
-                                    value={courseData.title}
-                                    onChange={e => setCourseData({ ...courseData, title: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    placeholder="Örn: İleri Seviye React Geliştirme"
-                                />
+                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* Course Title - Full Width */}
+                            <div className="space-y-3">
+                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                    <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full" />
+                                    Eğitim Başlığı
+                                </label>
+                                <div className="relative group">
+                                    <input
+                                        type="text"
+                                        value={courseData.title}
+                                        onChange={e => setCourseData({ ...courseData, title: e.target.value })}
+                                        className="w-full px-5 py-4 bg-white border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all duration-300 text-lg placeholder:text-gray-400 group-hover:border-gray-300"
+                                        placeholder="Örn: İleri Seviye React Geliştirme"
+                                    />
+                                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/5 to-purple-500/5 pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-300" />
+                                </div>
+                                <p className="text-xs text-slate-500 flex items-center gap-1">
+                                    <span className="w-1 h-1 bg-indigo-400 rounded-full" />
+                                    Öğrencilerin göreceği ana başlık
+                                </p>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700">Kategori</label>
-                                    <div className="flex gap-2">
+                            {/* Category & Image - Side by Side */}
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {/* Category */}
+                                <div className="space-y-3">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                        <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full" />
+                                        Kategori
+                                    </label>
+                                    <div className="flex gap-3">
                                         <select
                                             value={courseData.category}
                                             onChange={e => setCourseData({ ...courseData, category: e.target.value })}
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            className="flex-1 px-5 py-4 bg-white border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all duration-300 hover:border-gray-300 cursor-pointer"
                                         >
-                                            <option value="">Seçiniz...</option>
+                                            <option value="">Kategori seçiniz...</option>
                                             {categories.map(c => (
                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                             ))}
@@ -213,25 +345,25 @@ export const CourseWizard: React.FC<CourseWizardProps> = ({
                                             onClick={() => {
                                                 const name = prompt('Yeni kategori adı:');
                                                 if (name) {
-                                                    lmsService.createCategory(name).then(newCat => {
-                                                        // Ideally we should update the categories list here via a callback or context
-                                                        // For now, let's just reload the page or rely on parent update if possible
-                                                        // But since we can't easily update parent state from here without prop,
-                                                        // let's just assume it works and maybe alert user.
-                                                        // Better: Add onCategoryCreated prop to CourseWizard
-                                                        alert('Kategori oluşturuldu! Listeyi güncellemek için sayfayı yenileyin (veya parent state update ekleyin).');
+                                                    lmsService.createCategory(name).then(() => {
+                                                        alert('Kategori oluşturuldu! Listeyi güncellemek için sayfayı yenileyin.');
                                                     });
                                                 }
                                             }}
-                                            className="p-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-slate-600 transition-colors"
+                                            className="group p-4 bg-gradient-to-br from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 rounded-2xl text-indigo-600 transition-all duration-300 shadow-sm hover:shadow-md"
                                             title="Yeni Kategori Ekle"
                                         >
-                                            <Plus size={20} />
+                                            <Plus size={24} className="group-hover:rotate-90 transition-transform duration-300" />
                                         </button>
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700">Kapak Görseli</label>
+
+                                {/* Cover Image */}
+                                <div className="space-y-3">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                        <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full" />
+                                        Kapak Görseli
+                                    </label>
                                     <div className="relative">
                                         <input
                                             type="file"
@@ -240,243 +372,231 @@ export const CourseWizard: React.FC<CourseWizardProps> = ({
                                             id="course-image"
                                             accept="image/*"
                                         />
-                                        <label htmlFor="course-image" className="flex items-center gap-3 px-4 py-3 bg-gray-50 border border-gray-200 border-dashed rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                                        <label
+                                            htmlFor="course-image"
+                                            className="group flex items-center gap-4 px-5 py-4 bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl cursor-pointer hover:from-indigo-50 hover:to-purple-50 hover:border-indigo-300 transition-all duration-300"
+                                        >
                                             {typeof courseData.image === 'string' && courseData.image ? (
-                                                <img
-                                                    src={courseData.image.startsWith('http') ? courseData.image : `http://localhost:8001${courseData.image}`}
-                                                    alt="Preview"
-                                                    className="w-10 h-10 object-cover rounded-lg"
-                                                />
+                                                <div className="relative w-14 h-14 rounded-xl overflow-hidden ring-2 ring-indigo-200">
+                                                    <img
+                                                        src={courseData.image.startsWith('http') ? courseData.image : `http://localhost:8001${courseData.image}`}
+                                                        alt="Preview"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
                                             ) : (
-                                                <ImageIcon className="text-gray-400" />
+                                                <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center group-hover:bg-indigo-100 transition-colors duration-300">
+                                                    <ImageIcon className="text-gray-400 group-hover:text-indigo-500 transition-colors duration-300" size={28} />
+                                                </div>
                                             )}
-                                            <span className="text-sm text-gray-500 truncate">
-                                                {courseData.image instanceof File
-                                                    ? courseData.image.name
-                                                    : (typeof courseData.image === 'string' && courseData.image
-                                                        ? 'Mevcut görsel yüklü (Değiştirmek için tıklayın)'
-                                                        : 'Görsel Seç (Max 5MB)')}
-                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-slate-700 truncate">
+                                                    {courseData.image instanceof File
+                                                        ? courseData.image.name
+                                                        : (typeof courseData.image === 'string' && courseData.image
+                                                            ? 'Görsel yüklü ✓'
+                                                            : 'Görsel yükle')}
+                                                </p>
+                                                <p className="text-xs text-slate-500">Max 5MB • JPG, PNG</p>
+                                            </div>
+                                            <Upload className="text-gray-400 group-hover:text-indigo-500 transition-colors duration-300" size={20} />
                                         </label>
                                     </div>
                                 </div>
                             </div>
 
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Açıklama</label>
-                                <textarea
-                                    value={courseData.description}
-                                    onChange={e => setCourseData({ ...courseData, description: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none"
-                                    placeholder="Eğitimin içeriği ve hedefleri hakkında bilgi verin..."
-                                />
+                            {/* Description - Full Width */}
+                            <div className="space-y-3">
+                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                    <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full" />
+                                    Açıklama
+                                </label>
+                                <div className="relative group">
+                                    <textarea
+                                        value={courseData.description}
+                                        onChange={e => setCourseData({ ...courseData, description: e.target.value })}
+                                        className="w-full px-5 py-4 bg-white border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none transition-all duration-300 h-36 resize-none placeholder:text-gray-400 group-hover:border-gray-300"
+                                        placeholder="Eğitimin içeriği, hedefleri ve öğrencilerin kazanacağı beceriler hakkında bilgi verin..."
+                                    />
+                                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/5 to-purple-500/5 pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity duration-300" />
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-slate-500">
+                                    <span className="flex items-center gap-1">
+                                        <span className="w-1 h-1 bg-indigo-400 rounded-full" />
+                                        Detaylı ve ilgi çekici bir açıklama yazın
+                                    </span>
+                                    <span className="text-slate-400">{courseData.description.length}/500</span>
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    {/* STEP 2: MODULES */}
+                    {/* STEP 2: CONTENT MANAGEMENT (MERGED MODULES + CONTENT) */}
                     {currentStep === 2 && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-bold text-lg text-slate-800">Haftalık Plan (Modüller)</h3>
+                            {/* Header with Add Week Button */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-bold text-xl text-slate-800">Haftalık İçerik Planı</h3>
+                                    <p className="text-sm text-slate-500 mt-1">Haftaları oluşturun ve içerik ekleyin</p>
+                                </div>
                                 <button
-                                    onClick={() => setModules([...modules, { title: `${modules.length + 1}. Hafta: `, description: '' }])}
-                                    className="text-indigo-600 text-sm font-bold hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                                    onClick={handleAddWeek}
+                                    disabled={addingWeek}
+                                    className="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm hover:shadow-md font-medium active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    + Yeni Hafta Ekle
+                                    {addingWeek ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            Ekleniyor...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
+                                            Hafta Ekle
+                                        </>
+                                    )}
                                 </button>
                             </div>
 
+                            {/* Weeks/Modules List */}
                             <div className="space-y-4">
-                                {modules.map((mod, idx) => (
-                                    <div key={idx} className="flex gap-4 items-start group">
-                                        <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 mt-1">
-                                            {idx + 1}
-                                        </div>
-                                        <div className="flex-1 space-y-2">
-                                            <input
-                                                type="text"
-                                                value={mod.title}
-                                                onChange={e => {
-                                                    const newMods = [...modules];
-                                                    newMods[idx].title = e.target.value;
-                                                    setModules(newMods);
-                                                }}
-                                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
-                                                placeholder="Modül Başlığı"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={mod.description}
-                                                onChange={e => {
-                                                    const newMods = [...modules];
-                                                    newMods[idx].description = e.target.value;
-                                                    setModules(newMods);
-                                                }}
-                                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                                                placeholder="Kısa açıklama (isteğe bağlı)"
-                                            />
-                                        </div>
-                                        {modules.length > 1 && (
-                                            <button
-                                                onClick={() => setModules(modules.filter((_, i) => i !== idx))}
-                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors mt-1"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                                {modules.map((mod, idx) => {
+                                    // Find corresponding created module to show lessons
+                                    const createdMod = createdModules.find(cm => cm.title === mod.title || cm.id === mod.id);
+                                    const lessons = createdMod?.lessons || [];
 
-                    {/* STEP 3: CONTENT SUMMARY */}
-                    {currentStep === 3 && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                            <div className="text-center mb-8">
-                                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <CheckCircle2 size={32} />
-                                </div>
-                                <h3 className="text-2xl font-bold text-slate-800">Eğitim İçeriği</h3>
-                                <p className="text-slate-500">
-                                    Aşağıda eğitiminizin mevcut yapısını ve içeriklerini görebilirsiniz.
-                                </p>
-                            </div>
+                                    return (
+                                        <div key={idx} data-week-card className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden hover:border-indigo-200 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                            {/* Week Header */}
+                                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-5 py-4 border-b border-gray-200">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-xl flex items-center justify-center font-bold text-sm shrink-0">
+                                                        {idx + 1}
+                                                    </div>
+                                                    <div className="flex-1 flex gap-3">
+                                                        <input
+                                                            type="text"
+                                                            value={mod.title}
+                                                            onChange={e => {
+                                                                const newMods = [...modules];
+                                                                newMods[idx].title = e.target.value;
+                                                                setModules(newMods);
+                                                            }}
+                                                            className="flex-1 px-4 py-2 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 outline-none font-semibold text-slate-800"
+                                                            placeholder={`${idx + 1}. Hafta Başlığı`}
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={mod.description}
+                                                            onChange={e => {
+                                                                const newMods = [...modules];
+                                                                newMods[idx].description = e.target.value;
+                                                                setModules(newMods);
+                                                            }}
+                                                            className="flex-1 px-4 py-2 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 outline-none text-sm text-slate-600"
+                                                            placeholder="Açıklama (isteğe bağlı)"
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-full font-medium">
+                                                            {lessons.length} içerik
+                                                        </span>
+                                                        {createdMod?.id && onAddContent && (
+                                                            <button
+                                                                onClick={() => onAddContent(createdMod.id!)}
+                                                                className="px-3 py-1.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-1 text-sm font-medium"
+                                                            >
+                                                                <Plus size={16} />
+                                                                Ekle
+                                                            </button>
+                                                        )}
+                                                        {modules.length > 1 && (
+                                                            <button
+                                                                onClick={() => setModules(modules.filter((_, i) => i !== idx))}
+                                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                            <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                                {createdModules.map((mod, idx) => (
-                                    <div key={idx} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-                                            <h4 className="font-bold text-slate-700 text-sm">
-                                                {idx + 1}. {mod.title}
-                                            </h4>
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-xs text-slate-400">
-                                                    {mod.lessons?.length || 0} İçerik
-                                                </span>
-                                                {onAddContent && mod.id && (
-                                                    <button
-                                                        onClick={() => onAddContent(mod.id!)}
-                                                        className="text-xs bg-indigo-600 text-white px-2 py-1 rounded-md hover:bg-indigo-700 transition-colors flex items-center gap-1"
-                                                    >
-                                                        <Plus size={12} /> Ekle
-                                                    </button>
+                                            {/* Week Content List */}
+                                            <div className="p-4">
+                                                {lessons.length > 0 ? (
+                                                    <div className="space-y-2">
+                                                        {lessons.map((lesson, lIdx) => {
+                                                            // Dynamic icon based on resource type
+                                                            let Icon = Video;
+                                                            if (lesson.resourcetype === 'DocumentLesson') Icon = FileText;
+                                                            else if (lesson.resourcetype === 'QuizLesson') Icon = HelpCircle;
+                                                            else if (lesson.resourcetype === 'LiveLesson') Icon = MonitorPlay;
+                                                            else if (lesson.resourcetype === 'Assignment') Icon = ClipboardList;
+
+                                                            return (
+                                                                <div key={lIdx} className="flex items-center gap-3 p-3 hover:bg-indigo-50 rounded-xl transition-colors group">
+                                                                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                                                                        <Icon size={20} />
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="font-medium text-slate-800 truncate">{lesson.title}</p>
+                                                                        <p className="text-xs text-slate-500">
+                                                                            {lesson.resourcetype === 'VideoLesson' && 'Video Ders'}
+                                                                            {lesson.resourcetype === 'DocumentLesson' && 'Doküman'}
+                                                                            {lesson.resourcetype === 'LiveLesson' && 'Canlı Ders'}
+                                                                            {lesson.resourcetype === 'QuizLesson' && 'Quiz'}
+                                                                            {lesson.resourcetype === 'Assignment' && 'Ödev'}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        {onEditContent && (
+                                                                            <button
+                                                                                onClick={() => onEditContent(lesson, createdCourse?.id)}
+                                                                                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                                                                                title="Düzenle"
+                                                                            >
+                                                                                <Edit2 size={16} />
+                                                                            </button>
+                                                                        )}
+                                                                        {onDeleteContent && (
+                                                                            <button
+                                                                                onClick={() => onDeleteContent(lesson.id)}
+                                                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                                                title="Sil"
+                                                                            >
+                                                                                <Trash2 size={16} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-8 text-gray-400">
+                                                        <Video className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                                        <p className="text-sm">Bu haftaya henüz içerik eklenmemiş</p>
+                                                        {createdMod?.id && onAddContent && (
+                                                            <button
+                                                                onClick={() => onAddContent(createdMod.id!)}
+                                                                className="mt-3 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                                                            >
+                                                                + İçerik Ekle
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="p-2 space-y-1">
-                                            {mod.lessons && mod.lessons.length > 0 ? (
-                                                mod.lessons.map((lesson, lIdx) => (
-                                                    <div key={lIdx} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg text-sm text-slate-600 group">
-                                                        <div className="text-indigo-500 shrink-0">
-                                                            {lesson.resourcetype === 'VideoLesson' && <Video size={16} />}
-                                                            {lesson.resourcetype === 'PDFLesson' && <FileText size={16} />}
-                                                            {lesson.resourcetype === 'QuizLesson' && <HelpCircle size={16} />}
-                                                            {lesson.resourcetype === 'LiveLesson' && <MonitorPlay size={16} />}
-                                                            {lesson.resourcetype === 'Assignment' && <ClipboardList size={16} />}
-                                                        </div>
-                                                        <span className="truncate flex-1">{lesson.title}</span>
-
-                                                        <div className="flex items-center gap-2">
-                                                            {onEditContent && (
-                                                                <button
-                                                                    onClick={() => onEditContent(lesson, createdCourse?.id)}
-                                                                    className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
-                                                                    title="Düzenle"
-                                                                >
-                                                                    <Edit2 size={14} />
-                                                                </button>
-                                                            )}
-                                                            {onDeleteContent && (
-                                                                <button
-                                                                    onClick={() => onDeleteContent(lesson.id)}
-                                                                    className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                                                                    title="Sil"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-
-                                                        {lesson.resourcetype === 'VideoLesson' && (lesson.video_url || lesson.source_file) && (
-                                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Video</span>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="text-center py-4 text-gray-400 text-xs italic">
-                                                    Bu haftaya henüz içerik eklenmemiş.
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="bg-indigo-50 p-4 rounded-xl flex items-start gap-3 text-sm text-indigo-700">
-                                <HelpCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                                <p>
-                                    İçerikleri buradan hızlıca yönetebilirsiniz. Değişiklikler anında kaydedilir.
-                                </p>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
 
                 </div>
-            </div>
-
-
-            {/* Footer Actions */}
-            <div className="p-6 border-t border-gray-100 bg-white flex justify-between items-center sticky bottom-0 z-10">
-                {currentStep > 1 && currentStep < 3 && (
-                    <button
-                        onClick={() => setCurrentStep(prev => prev - 1)}
-                        className="flex items-center gap-2 px-6 py-3 text-slate-600 font-bold hover:bg-gray-100 rounded-xl transition-colors"
-                    >
-                        <ChevronLeft size={20} /> Geri
-                    </button>
-                )}
-                <div className="flex-1"></div>
-
-                {currentStep === 1 && (
-                    <button
-                        onClick={handleBasicSubmit}
-                        disabled={loading || !courseData.title}
-                        className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all disabled:opacity-50"
-                    >
-                        {loading ? 'Kaydediliyor...' : 'Devam Et'} <ChevronRight size={20} />
-                    </button>
-                )}
-
-                {currentStep === 2 && (
-                    <button
-                        onClick={handleModulesSubmit}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all disabled:opacity-50"
-                    >
-                        {loading ? 'Oluşturuluyor...' : 'Tamamla'} <CheckCircle2 size={20} />
-                    </button>
-                )}
-
-                {currentStep === 3 && (
-                    <button
-                        onClick={async () => {
-                            if (createdCourse) {
-                                try {
-                                    await lmsService.updateCourse(createdCourse.id, { is_published: true });
-                                } catch (error) {
-                                    console.error('Auto-publish failed', error);
-                                }
-                            }
-                            onComplete();
-                        }}
-                        className="flex items-center gap-2 px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-200 transition-all"
-                    >
-                        Yönetim Paneline Git <ChevronRight size={20} />
-                    </button>
-                )}
             </div>
         </div >
     );

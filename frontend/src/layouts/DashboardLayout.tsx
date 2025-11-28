@@ -1,11 +1,24 @@
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
 import AccessibilityWidget from '../components/ui/AccessibilityWidget';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenant } from '../contexts/TenantContext';
+
+// Page loading skeleton that matches the layout
+const PageSkeleton = () => (
+    <div className="p-6 space-y-6 animate-pulse">
+        <div className="h-24 bg-gray-200 rounded-2xl"></div>
+        <div className="grid grid-cols-3 gap-4">
+            <div className="h-20 bg-gray-200 rounded-xl"></div>
+            <div className="h-20 bg-gray-200 rounded-xl"></div>
+            <div className="h-20 bg-gray-200 rounded-xl"></div>
+        </div>
+        <div className="h-96 bg-gray-200 rounded-2xl"></div>
+    </div>
+);
 
 const DashboardLayout: React.FC = () => {
     const { user, logout, loading } = useAuth();
@@ -40,7 +53,9 @@ const DashboardLayout: React.FC = () => {
                 <Header user={user} currentTenant={currentTenant} />
 
                 <main className="flex-1 overflow-y-auto scroll-smooth relative">
-                    <Outlet />
+                    <Suspense fallback={<PageSkeleton />}>
+                        <Outlet />
+                    </Suspense>
                 </main>
 
                 <AccessibilityWidget />

@@ -24,12 +24,25 @@ const AcademySelection: React.FC<AcademySelectionProps> = ({ user, onSelectTenan
     return matchesSearch && matchesLetter;
   });
 
-  const handleActivationSubmit = async () => {
-    if (!activationCode.trim()) return;
+  const handleActivate = async () => {
+    if (!activationCode.trim()) {
+      alert('Lütfen aktivasyon kodunu girin.');
+      return;
+    }
 
-    // TODO: API call to validate and apply activation code
-    console.log('Activating code:', activationCode);
-    // After successful activation, could show a success message or redirect
+    try {
+      // TODO: API call to validate and apply activation code
+      // For now, simulate an API call
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+      if (activationCode === 'VALIDCODE') { // Example valid code
+        alert('Aktivasyon başarılı!');
+        // After successful activation, could show a success message or redirect
+      } else {
+        throw new Error('Invalid code');
+      }
+    } catch (error) {
+      alert('Aktivasyon kodu geçersiz!');
+    }
   };
 
   return (
@@ -66,10 +79,10 @@ const AcademySelection: React.FC<AcademySelectionProps> = ({ user, onSelectTenan
                 className="bg-white/10 border border-white/20 placeholder-white/40 text-white text-sm rounded-xl px-4 py-3 focus:bg-white/20 focus:ring-2 focus:ring-white/50 focus:border-white/50 w-full md:w-64 transition-all backdrop-blur-sm"
                 value={activationCode}
                 onChange={(e) => setActivationCode(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleActivationSubmit()}
+                onKeyPress={(e) => e.key === 'Enter' && handleActivate()}
               />
               <button
-                onClick={handleActivationSubmit}
+                onClick={handleActivate}
                 disabled={!activationCode.trim()}
                 className="bg-white text-indigo-600 text-sm font-bold px-6 py-3 rounded-xl hover:bg-indigo-50 hover:scale-105 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >

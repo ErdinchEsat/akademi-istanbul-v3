@@ -1,74 +1,68 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import {
-  Plus, Upload, Trash2, Edit2, Calendar, Clock,
+  Plus, Trash2, Edit2,
   FileText, Video, MonitorPlay, ClipboardList, HelpCircle, FileCheck2,
-  X, MoreHorizontal, CheckCircle2, AlertCircle, ChevronRight, PlayCircle
+  BookOpen, ChevronUp, ChevronDown, Eye, EyeOff, Layers
 } from 'lucide-react';
 import { EducationCategory } from './MyEducation';
 import { CourseWizard } from '../components/CourseWizard';
-import { lmsService } from '../../../services/lmsService';
-import { Course, Category } from '../../../types/lms';
+import { ContentModal } from '../components/ContentModal';
+import { Course } from '../../../types/lms';
 import clsx from 'clsx';
+import { useEducationManager } from '../../../hooks/useEducationManager';
 
 interface EducationManagerProps {
   category: EducationCategory;
 }
 
 const EducationManager: React.FC<EducationManagerProps> = ({ category: initialCategory }) => {
-  const navigate = useNavigate();
-  const [activeCategory, setActiveCategory] = useState(initialCategory);
-
-  // Update activeCategory when prop changes
-  useEffect(() => {
-    setActiveCategory(initialCategory);
-  }, [initialCategory]);
-
-  const [isWizardOpen, setWizardOpen] = useState(false);
-  const [isContentModalOpen, setContentModalOpen] = useState(false);
-
-  // Real Data State
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Selection State
-  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
-  const [selectedWeek, setSelectedWeek] = useState<string>('');
-
-  // Content Form State
-  const [contentData, setContentData] = useState<any>({});
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const [coursesData, categoriesData] = await Promise.all([
-        lmsService.getMyCourses(),
-        lmsService.getCategories()
-      ]);
-      setCourses(coursesData);
-      setCategories(categoriesData);
-    } catch (error) {
-      console.error('Failed to fetch data', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use custom hook for all state and business logic
+  const {
+    activeCategory,
+    isWizardOpen,
+    isContentModalOpen,
+    courses,
+    categories,
+    loading,
+    selectedCourseId,
+    selectedWeek,
+    editingCourse,
+    editingLessonId,
+    deletingId,
+    contentData,
+    modalContentType,
+    setActiveCategory,
+    setWizardOpen,
+    setContentModalOpen,
+    setSelectedCourseId,
+    setSelectedWeek,
+    setEditingCourse,
+    setEditingLessonId,
+    setDeletingId,
+    setContentData,
+    setModalContentType,
+    setCourses,
+    fetchData,
+    handleContentSubmit,
+    handleDelete,
+    handleTogglePublish,
+    handleEditLesson,
+    handleDeleteLesson,
+    navigate
+  } = useEducationManager({ initialCategory });
 
   const selectedCourseData = courses.find(c => c.id.toString() === selectedCourseId);
 
+
   // Config based on Category
   const config = {
-    ebooks: {
-      title: 'E-Kitapçık Yönetimi',
+    documents: {
+      title: 'Ders Materyali Yönetimi',
       icon: <FileText className="w-8 h-8 text-orange-500" />,
-      desc: 'Ders notları ve kaynakları yükleyin.',
-      actionText: 'Yeni Materyal Yükle',
-      fields: ['Dosya Adı', 'Ders', 'Hafta', 'Boyut', 'Tarih']
+      desc: 'PDF, Word, Excel dosyalarınızı yükleyin.',
+      actionText: 'Materyal Yükle',
+      fields: ['Dosya Adı', 'Ders', 'Hafta', 'Boyut', 'Tür', 'Tarih']
     },
     videos: {
       title: 'Video İçerik Yönetimi',
@@ -107,101 +101,77 @@ const EducationManager: React.FC<EducationManagerProps> = ({ category: initialCa
     },
   }[activeCategory];
 
-  const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
-
-  const handleContentSubmit = async () => {
-    if (!selectedCourseId || !selectedWeek || !contentData.title) return;
-
-    setLoading(true);
-    try {
-      const lessonData: any = {
-        title: contentData.title,
-        resourcetype: activeCategory === 'videos' ? 'VideoLesson' :
-          activeCategory === 'ebooks' ? 'PDFLesson' :
-            activeCategory === 'live' ? 'LiveLesson' :
-              activeCategory === 'quizzes' ? 'QuizLesson' :
-                activeCategory === 'assignments' ? 'Assignment' : 'HTMLLesson'
-      };
-
-      // Add category specific fields
-      if (activeCategory === 'videos') {
-        if (contentData.useUrl && contentData.video_url) {
-          lessonData.video_url = contentData.video_url;
-        } else if (contentData.file) {
-          lessonData.source_file = contentData.file;
-        }
-      } else if (activeCategory === 'ebooks' && contentData.file) {
-        lessonData.file = contentData.file;
-      } else if (activeCategory === 'live') {
-        lessonData.start_time = contentData.start_time;
-        lessonData.meeting_link = contentData.meeting_link;
-        lessonData.duration = contentData.duration;
-      } else if (activeCategory === 'quizzes') {
-        lessonData.duration_minutes = Number(contentData.duration_minutes);
-        lessonData.passing_score = Number(contentData.passing_score);
-      }
-
-      if (editingLessonId) {
-        await lmsService.updateLesson(editingLessonId, lessonData);
-      } else {
-        lessonData.order = 1; // Default order for new
-        await lmsService.createLesson(Number(selectedWeek), lessonData);
-      }
-
-      // Success
-      setContentModalOpen(false);
-      setContentData({});
-      setEditingLessonId(null);
-
-      // Refresh data
-      if (editingCourse) {
-        const updatedCourse = await lmsService.getCourse(editingCourse.id);
-        setEditingCourse(updatedCourse);
-        setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
-      } else {
-        fetchData();
-      }
-
-      alert(editingLessonId ? 'İçerik güncellendi!' : 'İçerik başarıyla eklendi!');
-    } catch (error) {
-      console.error('Content save failed', error);
-      alert('İşlem sırasında bir hata oluştu.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // ... existing code ...
 
 
-
-  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const handleEdit = (course: Course) => {
     setEditingCourse(course);
     setWizardOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    try {
-      await lmsService.deleteCourse(id);
-      setDeletingId(null);
-      fetchData();
-    } catch (error) {
-      console.error('Delete failed', error);
+  // Filtering & Sorting Logic
+  const [filterText, setFilterText] = React.useState('');
+  const [categoryFilter, setCategoryFilter] = React.useState('all');
+  const [statusFilter, setStatusFilter] = React.useState<'all' | 'published' | 'draft'>('all');
+  const [sortField, setSortField] = React.useState<'title' | 'category' | 'status'>('title');
+  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
+
+  const filteredCourses = React.useMemo(() => {
+    let result = courses.filter(course => {
+      const matchesText = course.title.toLowerCase().includes(filterText.toLowerCase()) ||
+        (course.description && course.description.toLowerCase().includes(filterText.toLowerCase()));
+
+      const matchesCategory = categoryFilter === 'all' || course.category.toString() === categoryFilter;
+
+      const matchesStatus = statusFilter === 'all' ||
+        (statusFilter === 'published' && course.is_published) ||
+        (statusFilter === 'draft' && !course.is_published);
+
+      return matchesText && matchesCategory && matchesStatus;
+    });
+
+    // Sort
+    result.sort((a, b) => {
+      let comparison = 0;
+      if (sortField === 'title') {
+        comparison = a.title.localeCompare(b.title);
+      } else if (sortField === 'category') {
+        comparison = (a.category_name || '').localeCompare(b.category_name || '');
+      } else if (sortField === 'status') {
+        comparison = (a.is_published ? 1 : 0) - (b.is_published ? 1 : 0);
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [courses, filterText, categoryFilter, statusFilter, sortField, sortDirection]);
+
+  const handleSort = (field: 'title' | 'category' | 'status') => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
   };
 
-  const handleTogglePublish = async (course: Course) => {
-    try {
-      await lmsService.updateCourse(course.id, { is_published: !course.is_published });
-      fetchData();
-    } catch (error) {
-      console.error('Failed to update publish status', error);
-      alert('Durum güncellenirken bir hata oluştu.');
-    }
+  const SortIcon = ({ field }: { field: 'title' | 'category' | 'status' }) => {
+    if (sortField !== field) return <ChevronUp className="w-4 h-4 opacity-0 group-hover:opacity-30" />;
+    return sortDirection === 'asc'
+      ? <ChevronUp className="w-4 h-4 text-indigo-600" />
+      : <ChevronDown className="w-4 h-4 text-indigo-600" />;
   };
+
+  // Show skeleton while loading
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6 animate-pulse">
+        <div className="h-24 bg-gray-200 rounded-2xl"></div>
+        <div className="h-96 bg-gray-200 rounded-2xl"></div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -223,154 +193,189 @@ const EducationManager: React.FC<EducationManagerProps> = ({ category: initialCa
             setEditingCourse(updatedCourse);
           }}
           onAddContent={(moduleId) => {
-            if (editingCourse) {
-              setSelectedCourseId(editingCourse.id.toString());
-              setSelectedWeek(moduleId.toString());
-              setContentModalOpen(true);
-            }
+            setSelectedWeek(moduleId.toString());
+            setModalContentType(activeCategory);
+            setEditingLessonId(null); // CRITICAL: Must be null for CREATE
+            setContentModalOpen(true);
           }}
-          onDeleteContent={async (lessonId) => {
-            if (confirm('Bu içeriği silmek istediğinize emin misiniz?')) {
-              try {
-                await lmsService.deleteLesson(lessonId);
-                // Refresh course data to update the UI
-                if (editingCourse) {
-                  const updatedCourse = await lmsService.getCourse(editingCourse.id);
-                  setEditingCourse(updatedCourse);
-                  setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
-                }
-              } catch (error) {
-                console.error('Failed to delete lesson', error);
-                alert('İçerik silinirken bir hata oluştu.');
-              }
-            }
-          }}
-          onEditContent={(lesson, courseId) => {
-            // Use passed courseId or fallback to editingCourse.id
-            const cId = courseId || editingCourse?.id;
-
-            if (cId) {
-              setEditingLessonId(lesson.id);
-              setSelectedCourseId(cId.toString());
-
-              // Find the course object to find the module
-              // If editingCourse is set and matches, use it. Otherwise find in courses list.
-              const currentCourse = (editingCourse && editingCourse.id === cId)
-                ? editingCourse
-                : courses.find(c => c.id === cId);
-
-              if (currentCourse) {
-                // Find which module this lesson belongs to
-                const module = currentCourse.modules?.find(m => m.lessons?.some(l => l.id === lesson.id));
-                if (module) setSelectedWeek(module.id!.toString());
-              }
-
-              // Populate form data
-              const newData: any = {
-                title: lesson.title,
-              };
-
-              if (lesson.resourcetype === 'VideoLesson') {
-                setActiveCategory('videos');
-                if (lesson.video_url) {
-                  newData.useUrl = true;
-                  newData.video_url = lesson.video_url;
-                } else {
-                  newData.useUrl = false;
-                }
-              } else if (lesson.resourcetype === 'PDFLesson') {
-                setActiveCategory('ebooks');
-                // PDF specific data if needed
-              } else if (lesson.resourcetype === 'LiveLesson') {
-                setActiveCategory('live');
-                newData.start_time = lesson.start_time;
-                newData.meeting_link = lesson.meeting_link;
-                newData.duration = lesson.duration;
-              } else if (lesson.resourcetype === 'QuizLesson') {
-                setActiveCategory('quizzes');
-                newData.duration_minutes = lesson.duration_minutes;
-                newData.passing_score = lesson.passing_score;
-              } else if (lesson.resourcetype === 'Assignment') {
-                setActiveCategory('assignments');
-              }
-
-              setContentData(newData);
-              setContentModalOpen(true);
-            }
-          }}
+          onDeleteContent={handleDeleteLesson}
+          onEditContent={handleEditLesson}
         />
       ) : (
-        <div className="p-6 max-w-7xl mx-auto space-y-8 h-full flex flex-col pb-20">
-          {/* Header */}
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shrink-0">
-            <div className="flex items-center gap-6">
-              <div className="p-4 bg-slate-50 rounded-2xl shadow-inner border border-gray-100">
-                {config.icon}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">{config.title}</h1>
-                <p className="text-slate-500 mt-1">{config.desc}</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setEditingCourse(null);
-                  setWizardOpen(true);
-                }}
-                className="flex items-center gap-2 bg-white border border-gray-200 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all"
-              >
-                <Plus className="w-5 h-5" />
-                Eğitim Oluştur
-              </button>
-              <button
-                onClick={() => setContentModalOpen(true)}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95"
-              >
-                <Plus className="w-5 h-5" />
-                {config.actionText}
-              </button>
-            </div>
-          </div>
-
-          {/* Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-            <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-              <div className="text-xs font-bold text-gray-500 uppercase">Toplam Eğitim</div>
-              <div className="text-2xl font-black text-slate-800 mt-1">{courses.length}</div>
-            </div>
-            {/* More stats can be added here */}
-          </div>
-
-          {/* Content Table */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex-1 overflow-hidden flex flex-col">
-            {courses.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                <div className="bg-gray-50 p-6 rounded-full mb-4">
-                  <ClipboardList className="w-12 h-12 text-gray-300" />
+        <div className="p-6 w-full mx-auto space-y-6 h-full flex flex-col pb-20">
+          {/* Compact Header */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 shrink-0">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl text-white shadow-lg shadow-indigo-200">
+                  <BookOpen className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-700">Henüz İçerik Yok</h3>
-                <p className="text-slate-500 max-w-sm mt-2">
-                  Bu kategoride henüz bir içerik oluşturulmamış. Yukarıdaki butonları kullanarak yeni içerik ekleyebilirsiniz.
-                </p>
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900">Kurs Yönetimi</h1>
+                  <p className="text-slate-500 text-sm">Eğitimlerinizi oluşturun, düzenleyin ve yönetin</p>
+                </div>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/50">
-                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Eğitim</th>
-                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Kategori</th>
-                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Durum</th>
-                      <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">İşlemler</th>
+
+              {/* Quick Stats */}
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <div className="text-2xl font-black text-slate-800">{courses.length}</div>
+                  <div className="text-xs text-gray-500">Toplam</div>
+                </div>
+                <div className="h-8 w-px bg-gray-200" />
+                <div className="text-center">
+                  <div className="text-2xl font-black text-green-600">{courses.filter(c => c.is_published).length}</div>
+                  <div className="text-xs text-gray-500">Yayında</div>
+                </div>
+                <div className="h-8 w-px bg-gray-200" />
+                <div className="text-center">
+                  <div className="text-2xl font-black text-amber-500">{courses.filter(c => !c.is_published).length}</div>
+                  <div className="text-xs text-gray-500">Taslak</div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setEditingCourse(null);
+                    setWizardOpen(true);
+                  }}
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95"
+                >
+                  <Plus className="w-5 h-5" />
+                  Yeni Eğitim
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Table Container */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex-1 overflow-hidden flex flex-col">
+            {/* Filter Bar */}
+            <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row gap-4 items-center justify-between bg-gray-50/50">
+              <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+                {/* Search */}
+                <div className="relative flex-1 sm:w-64 min-w-[200px]">
+                  <input
+                    type="text"
+                    placeholder="Eğitim ara..."
+                    value={filterText}
+                    onChange={(e) => setFilterText(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <div className="absolute left-3 top-2.5 text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                  </div>
+                </div>
+
+                {/* Category Filter */}
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="all">Tüm Kategoriler</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+
+                {/* Status Filter */}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'published' | 'draft')}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="all">Tüm Durumlar</option>
+                  <option value="published">Yayında</option>
+                  <option value="draft">Taslak</option>
+                </select>
+              </div>
+
+              <div className="text-sm text-gray-500 font-medium">
+                {filteredCourses.length} / {courses.length} kayıt
+              </div>
+            </div>
+
+            {/* Table Content */}
+            <div className="flex-1 overflow-auto min-h-0">
+              {filteredCourses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-12 text-center h-full">
+                  <div className="bg-gray-50 p-6 rounded-full mb-4">
+                    <BookOpen className="w-12 h-12 text-gray-300" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-700">
+                    {courses.length === 0 ? 'Henüz Eğitim Yok' : 'Sonuç Bulunamadı'}
+                  </h3>
+                  <p className="text-slate-500 max-w-sm mt-2">
+                    {courses.length === 0
+                      ? 'Yeni bir eğitim oluşturmak için yukarıdaki butonu kullanın.'
+                      : 'Arama kriterlerinize uygun eğitim bulunamadı.'}
+                  </p>
+                  {courses.length === 0 && (
+                    <button
+                      onClick={() => {
+                        setEditingCourse(null);
+                        setWizardOpen(true);
+                      }}
+                      className="mt-4 flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-indigo-700 transition-all"
+                    >
+                      <Plus className="w-5 h-5" />
+                      İlk Eğitimi Oluştur
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-4 px-6 font-semibold text-slate-600 text-sm">
+                        <button
+                          onClick={() => handleSort('title')}
+                          className="flex items-center gap-1 group hover:text-indigo-600 transition-colors"
+                        >
+                          Eğitim Bilgileri
+                          <SortIcon field="title" />
+                        </button>
+                      </th>
+                      <th className="text-left py-4 px-4 font-semibold text-slate-600 text-sm">
+                        <button
+                          onClick={() => handleSort('category')}
+                          className="flex items-center gap-1 group hover:text-indigo-600 transition-colors"
+                        >
+                          Kategori
+                          <SortIcon field="category" />
+                        </button>
+                      </th>
+                      <th className="text-center py-4 px-4 font-semibold text-slate-600 text-sm">
+                        Hafta
+                      </th>
+                      <th className="text-center py-4 px-4 font-semibold text-slate-600 text-sm">
+                        <button
+                          onClick={() => handleSort('status')}
+                          className="flex items-center gap-1 group hover:text-indigo-600 transition-colors mx-auto"
+                        >
+                          Durum
+                          <SortIcon field="status" />
+                        </button>
+                      </th>
+                      <th className="text-right py-4 px-6 font-semibold text-slate-600 text-sm">
+                        İşlemler
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {courses.map((course) => (
-                      <tr key={course.id} className="hover:bg-gray-50/50 transition-colors group">
-                        <td className="p-4">
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredCourses.map((course) => (
+                      <tr
+                        key={course.id}
+                        className="hover:bg-indigo-50/30 transition-colors group cursor-pointer"
+                        onClick={() => navigate(`/egitim/oynatici/${course.id}`)}
+                      >
+                        {/* Course Info */}
+                        <td className="py-4 px-6">
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                            <div className="w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-100 flex-shrink-0">
                               {course.image ? (
                                 <img
                                   src={typeof course.image === 'string' && !course.image.startsWith('http')
@@ -382,57 +387,84 @@ const EducationManager: React.FC<EducationManagerProps> = ({ category: initialCa
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                  <FileText size={20} />
+                                <div className="w-full h-full flex items-center justify-center text-indigo-400">
+                                  <BookOpen size={24} />
                                 </div>
                               )}
                             </div>
-                            <div>
-                              <h4 className="font-bold text-slate-800">{course.title}</h4>
-                              <p className="text-xs text-slate-500 line-clamp-1">{course.description || 'Açıklama yok'}</p>
+                            <div className="min-w-0">
+                              <h3 className="font-semibold text-slate-800 truncate max-w-[300px] group-hover:text-indigo-600 transition-colors">
+                                {course.title}
+                              </h3>
+                              <p className="text-sm text-slate-500 truncate max-w-[300px]">
+                                {course.description || 'Açıklama eklenmemiş'}
+                              </p>
                             </div>
                           </div>
                         </td>
-                        <td className="p-4">
-                          <span className="text-sm font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
+
+                        {/* Category */}
+                        <td className="py-4 px-4">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-full">
+                            <Layers size={12} />
                             {course.category_name || 'Genel'}
                           </span>
                         </td>
-                        <td className="p-4">
+
+                        {/* Module Count */}
+                        <td className="py-4 px-4 text-center">
+                          <span className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 text-slate-700 rounded-lg text-sm font-semibold">
+                            {course.modules?.length || 0}
+                          </span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => handleTogglePublish(course)}
                             className={clsx(
-                              "text-xs font-bold px-2 py-1 rounded-full transition-all hover:scale-105 active:scale-95",
+                              "inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95",
                               course.is_published
-                                ? "bg-green-100 text-green-600 hover:bg-green-200"
-                                : "bg-yellow-100 text-yellow-600 hover:bg-yellow-200"
+                                ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                : "bg-amber-100 text-amber-700 hover:bg-amber-200"
                             )}
-                            title={course.is_published ? "Yayından Kaldır" : "Yayınla"}
                           >
-                            {course.is_published ? 'Yayında' : 'Taslak'}
+                            {course.is_published ? (
+                              <>
+                                <Eye size={14} />
+                                Yayında
+                              </>
+                            ) : (
+                              <>
+                                <EyeOff size={14} />
+                                Taslak
+                              </>
+                            )}
                           </button>
                         </td>
-                        <td className="p-4 text-right">
+
+                        {/* Actions */}
+                        <td className="py-4 px-6" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleEdit(course)}
-                              className="p-2 hover:bg-indigo-50 text-indigo-600 rounded-lg transition-colors"
+                              className="p-2 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors"
                               title="Düzenle"
                             >
                               <Edit2 size={18} />
                             </button>
 
                             {deletingId === course.id ? (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => handleDelete(course.id)}
-                                  className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600"
+                                  className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600"
                                 >
                                   Sil
                                 </button>
                                 <button
                                   onClick={() => setDeletingId(null)}
-                                  className="px-3 py-1 bg-gray-200 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-300"
+                                  className="px-3 py-1.5 bg-gray-200 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-300"
                                 >
                                   İptal
                                 </button>
@@ -440,329 +472,44 @@ const EducationManager: React.FC<EducationManagerProps> = ({ category: initialCa
                             ) : (
                               <button
                                 onClick={() => setDeletingId(course.id)}
-                                className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors"
+                                className="p-2 hover:bg-red-100 text-red-500 rounded-lg transition-colors"
                                 title="Sil"
                               >
                                 <Trash2 size={18} />
                               </button>
                             )}
-
-                            <button
-                              onClick={() => {
-                                setSelectedCourseId(course.id.toString());
-                                setContentModalOpen(true);
-                              }}
-                              className="p-2 hover:bg-gray-100 text-gray-500 rounded-lg transition-colors"
-                              title="İçerik Ekle"
-                            >
-                              <ChevronRight size={18} />
-                            </button>
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
-          </div>
-
-          {/* Student View Preview Section */}
-          <div className="mt-12 mb-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
-                <MonitorPlay className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Öğrenci Görünümü (Önizleme)</h2>
-                <p className="text-slate-500 text-sm">Öğrencilerinizin eğitimleri nasıl gördüğünü buradan inceleyebilirsiniz.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {courses.map(course => (
-                <div
-                  key={course.id}
-                  onClick={() => navigate(`/egitim/oynatici/${course.id}`)}
-                  className="group bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col h-full"
-                >
-                  <div className="relative aspect-video bg-slate-100 overflow-hidden">
-                    <img
-                      src={course.image
-                        ? (typeof course.image === 'string' && course.image.startsWith('http')
-                          ? course.image
-                          : `http://localhost:8001${course.image}`)
-                        : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60'}
-                      alt={course.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                      <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300 shadow-lg">
-                        <PlayCircle className="w-6 h-6 text-indigo-600 fill-current" />
-                      </div>
-                    </div>
-                    <div className="absolute top-3 right-3">
-                      <span className={clsx(
-                        "text-xs font-bold px-2 py-1 rounded-full shadow-sm",
-                        course.is_published ? "bg-green-500 text-white" : "bg-yellow-500 text-white"
-                      )}>
-                        {course.is_published ? 'Yayında' : 'Taslak'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-5 flex-1 flex flex-col">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">
-                        {course.category_name || 'Genel'}
-                      </span>
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Video size={12} /> {course.total_modules || 0} Modül
-                      </span>
-                    </div>
-
-                    <h3 className="font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-indigo-600 transition-colors">
-                      {course.title}
-                    </h3>
-
-                    <p className="text-sm text-slate-500 line-clamp-2 mb-4 flex-1">
-                      {course.description || 'Açıklama bulunmuyor.'}
-                    </p>
-
-                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between mt-auto">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
-                          {course.instructor?.first_name?.[0] || 'E'}
-                        </div>
-                        <span className="text-xs font-medium text-slate-600">
-                          {course.instructor?.first_name} {course.instructor?.last_name}
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold text-indigo-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                        İzle <ChevronRight size={14} />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {courses.length === 0 && (
-                <div className="col-span-full text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                  <p className="text-slate-500">Henüz oluşturulmuş bir eğitim bulunmuyor.</p>
-                </div>
               )}
             </div>
           </div>
         </div>
       )}
+
 
       {/* Content Modal */}
-      {isContentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-lg text-slate-800">{config.actionText}</h3>
-              <button onClick={() => setContentModalOpen(false)}><X className="w-5 h-5 text-gray-500" /></button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Course Selection */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">Hangi Ders İçin?</label>
-                <select
-                  value={selectedCourseId}
-                  onChange={(e) => setSelectedCourseId(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Ders Seçiniz...</option>
-                  {courses.map(c => (
-                    <option key={c.id} value={c.id}>{c.title}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Module Selection */}
-              {selectedCourseId && (
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Hangi Hafta/Modül?</label>
-                  <select
-                    value={selectedWeek}
-                    onChange={(e) => setSelectedWeek(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Modül Seçiniz...</option>
-                    {courses.find(c => c.id.toString() === selectedCourseId)?.modules?.map(m => (
-                      <option key={m.id} value={m.id}>{m.title}</option>
-                    ))}
-                  </select>
-                  {(!courses.find(c => c.id.toString() === selectedCourseId)?.modules?.length) && (
-                    <p className="text-xs text-red-500">Bu derse ait modül bulunamadı. Önce dersi düzenleyip modül ekleyin.</p>
-                  )}
-                </div>
-              )}
-
-              {/* Common: Title */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">İçerik Başlığı</label>
-                <input
-                  type="text"
-                  value={contentData.title || ''}
-                  onChange={e => setContentData({ ...contentData, title: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Örn: React Giriş Dersi"
-                />
-              </div>
-
-              {/* Category Specific Fields */}
-              {activeCategory === 'videos' && (
-                <div className="space-y-4">
-                  <div className="flex gap-4 border-b border-gray-100">
-                    <button
-                      className={clsx("pb-2 text-sm font-bold border-b-2 transition-colors", !contentData.useUrl ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-400")}
-                      onClick={() => setContentData({ ...contentData, useUrl: false })}
-                    >
-                      Dosya Yükle
-                    </button>
-                    <button
-                      className={clsx("pb-2 text-sm font-bold border-b-2 transition-colors", contentData.useUrl ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-400")}
-                      onClick={() => setContentData({ ...contentData, useUrl: true })}
-                    >
-                      Video Linki
-                    </button>
-                  </div>
-
-                  {!contentData.useUrl ? (
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Video Dosyası (MP4)</label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
-                        <input
-                          type="file"
-                          accept="video/mp4"
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          onChange={e => setContentData({ ...contentData, file: e.target.files?.[0] })}
-                        />
-                        <Upload className="mx-auto h-10 w-10 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-500">
-                          {contentData.file ? contentData.file.name : "MP4 yüklemek için tıklayın veya sürükleyin"}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Video URL</label>
-                      <input
-                        type="url"
-                        value={contentData.video_url || ''}
-                        onChange={e => setContentData({ ...contentData, video_url: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="https://..."
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeCategory === 'ebooks' && (
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">PDF Dosyası</label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      onChange={e => setContentData({ ...contentData, file: e.target.files?.[0] })}
-                    />
-                    <FileText className="mx-auto h-10 w-10 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-500">
-                      {contentData.file ? contentData.file.name : "PDF yüklemek için tıklayın veya sürükleyin"}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {activeCategory === 'live' && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Başlangıç Tarihi</label>
-                      <input
-                        type="datetime-local"
-                        value={contentData.start_time || ''}
-                        onChange={e => setContentData({ ...contentData, start_time: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Süre (Dakika)</label>
-                      <input
-                        type="number"
-                        value={contentData.duration || ''}
-                        onChange={e => setContentData({ ...contentData, duration: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">Toplantı Linki</label>
-                    <input
-                      type="url"
-                      value={contentData.meeting_link || ''}
-                      onChange={e => setContentData({ ...contentData, meeting_link: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="https://zoom.us/j/..."
-                    />
-                  </div>
-                </>
-              )}
-
-              {activeCategory === 'quizzes' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">Süre (Dakika)</label>
-                    <input
-                      type="number"
-                      value={contentData.duration_minutes || ''}
-                      onChange={e => setContentData({ ...contentData, duration_minutes: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">Geçme Notu</label>
-                    <input
-                      type="number"
-                      value={contentData.passing_score || ''}
-                      onChange={e => setContentData({ ...contentData, passing_score: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-              )}
-
-            </div>
-
-            <div className="flex justify-end gap-3 mt-8">
-              <button
-                onClick={() => {
-                  setContentModalOpen(false);
-                  setContentData({});
-                  setSelectedCourseId('');
-                  setSelectedWeek('');
-                }}
-                className="px-6 py-2.5 text-slate-600 font-bold hover:bg-gray-100 rounded-xl"
-              >
-                İptal
-              </button>
-              <button
-                onClick={handleContentSubmit}
-                disabled={loading || !selectedCourseId || !selectedWeek || !contentData.title}
-                className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {loading ? 'Kaydediliyor...' : 'Kaydet'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ContentModal
+        isOpen={isContentModalOpen}
+        onClose={() => setContentModalOpen(false)}
+        modalContentType={modalContentType}
+        setModalContentType={setModalContentType}
+        contentData={contentData}
+        setContentData={setContentData}
+        onSubmit={handleContentSubmit}
+        courses={courses}
+        selectedCourseId={selectedCourseId}
+        setSelectedCourseId={setSelectedCourseId}
+        selectedWeek={selectedWeek}
+        setSelectedWeek={setSelectedWeek}
+        editingLessonId={editingLessonId}
+        setEditingLessonId={setEditingLessonId}
+        loading={loading}
+        actionText={editingLessonId ? 'İçerik Düzenle' : 'Yeni İçerik Ekle'}
+      />
     </>
   );
 };

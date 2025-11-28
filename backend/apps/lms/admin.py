@@ -1,6 +1,6 @@
 from django.contrib import admin
 from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin, PolymorphicChildModelFilter
-from .models import Category, Course, Module, Lesson, VideoLesson, PDFLesson, QuizLesson, HTMLLesson
+from .models import Category, Course, Module, Lesson, VideoLesson, DocumentLesson, QuizLesson, HTMLLesson
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -32,9 +32,11 @@ class LessonChildAdmin(PolymorphicChildModelAdmin):
 class VideoLessonAdmin(LessonChildAdmin):
     base_model = VideoLesson
 
-@admin.register(PDFLesson)
-class PDFLessonAdmin(LessonChildAdmin):
-    base_model = PDFLesson
+@admin.register(DocumentLesson)
+class DocumentLessonAdmin(LessonChildAdmin):
+    base_model = DocumentLesson
+    list_display = ('title', 'module', 'order', 'file_type', 'file_size')
+    readonly_fields = ('file_type', 'file_size')
 
 @admin.register(QuizLesson)
 class QuizLessonAdmin(LessonChildAdmin):
@@ -47,7 +49,7 @@ class HTMLLessonAdmin(LessonChildAdmin):
 @admin.register(Lesson)
 class LessonParentAdmin(PolymorphicParentModelAdmin):
     base_model = Lesson
-    child_models = (VideoLesson, PDFLesson, QuizLesson, HTMLLesson)
+    child_models = (VideoLesson, DocumentLesson, QuizLesson, HTMLLesson)
     list_filter = (PolymorphicChildModelFilter, 'module__course')
     list_display = ('title', 'module', 'is_preview', 'polymorphic_ctype')
     ordering = ('module', 'order')

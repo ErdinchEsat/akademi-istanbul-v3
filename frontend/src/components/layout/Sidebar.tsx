@@ -50,7 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const isInstructor = user.role === UserRole.INSTRUCTOR;
   const isStudent = user.role === UserRole.STUDENT;
 
-  const isEducationView = currentPath.startsWith('/egitimlerim') || currentPath.startsWith('/studyo-rezervasyon');
+  const isEducationView = currentPath.startsWith('/egitimlerim') || currentPath.startsWith('/studyo-rezervasyon') || currentPath.startsWith('/ogretmen');
   const isCommerceView = ['/sepet', '/faturalar'].includes(currentPath);
   const isCareerView = currentPath.startsWith('/kariyer');
 
@@ -77,10 +77,16 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         '/egitimlerim/quizler',
         '/egitimlerim/sinavlar',
       ],
-      subItems: [
+      subItems: isInstructor ? [
+        { id: 'create-course', label: 'Kurs Yönetimi', icon: PenTool, path: '/egitimlerim/kurs-olustur' },
+        { id: 'live', label: 'Canlı Dersler', icon: MonitorPlay, path: '/ogretmen/canli-dersler' },
+        { id: 'assignments', label: 'Ödevler', icon: ClipboardList, path: '/ogretmen/odevler' },
+        { id: 'quizzes', label: 'Quizler', icon: HelpCircle, path: '/ogretmen/quizler' },
+        { id: 'exams', label: 'Sınavlar', icon: FileCheck2, path: '/ogretmen/sinavlar' },
+      ] : [
         { id: 'ebooks', label: 'E-Kitapçık', icon: FileText, path: '/egitimlerim/kitaplar' },
         { id: 'videos', label: 'Ders Videoları', icon: Video, path: '/egitimlerim/videolar' },
-        { id: 'live', label: 'Canlı Dersler', icon: MonitorPlay, path: '/egitimlerim/canli', badge: isInstructor ? undefined : "Canlı" },
+        { id: 'live', label: 'Canlı Dersler', icon: MonitorPlay, path: '/egitimlerim/canli', badge: "Canlı" },
         { id: 'assignments', label: 'Ödevler', icon: ClipboardList, path: '/egitimlerim/odevler' },
         { id: 'quizzes', label: 'Quizler', icon: HelpCircle, path: '/egitimlerim/quizler' },
         { id: 'exams', label: 'Sınavlar', icon: FileCheck2, path: '/egitimlerim/sinavlar' },

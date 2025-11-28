@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Media files
+backend/media/course_videos/
+backend/media/course_images/
+backend/media/course_documents/

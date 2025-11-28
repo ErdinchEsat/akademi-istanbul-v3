@@ -6,7 +6,7 @@ import { UserRole } from '@/types';
 import LiveClassroom from '../../realtime/components/LiveClassroom';
 import clsx from 'clsx';
 
-export type EducationCategory = 'ebooks' | 'videos' | 'live' | 'assignments' | 'quizzes' | 'exams';
+export type EducationCategory = 'documents' | 'videos' | 'live' | 'assignments' | 'quizzes' | 'exams';
 
 interface MyEducationProps {
   category: EducationCategory;
@@ -250,9 +250,9 @@ const VideosList = ({ onCourseClick }: { onCourseClick: (id: string) => void }) 
                   <PlayCircle className="w-6 h-6 fill-current" />
                 </div>
               </div>
-              <div className="absolute bottom-3 right-3 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1">
-                <Video className="w-3 h-3" /> {course.modules?.length || 0} Modül
-              </div>
+                              <div className="absolute bottom-3 right-3 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1">
+                                <Video className="w-3 h-3" /> {course.modules?.length || 0} Hafta
+                              </div>
             </div>
             <div className="p-5 flex flex-col flex-1">
               <div className="mb-2">

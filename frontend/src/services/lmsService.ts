@@ -107,7 +107,11 @@ export const lmsService = {
         return response.data;
     },
 
-    createLesson: async (moduleId: number, data: Partial<Lesson>): Promise<Lesson> => {
+    createLesson: async (
+        moduleId: number,
+        data: Partial<Lesson>,
+        onProgress?: (progress: number) => void
+    ): Promise<Lesson> => {
         const formData = new FormData();
         formData.append('resourcetype', data.resourcetype!);
         formData.append('module', moduleId.toString());
@@ -120,13 +124,8 @@ export const lmsService = {
             if (data.video_url) formData.append('video_url', data.video_url);
         }
 
-        // PDFLesson
-        if (data.resourcetype === 'PDFLesson' && data.file) {
-            // Note: Backend expects 'file' field for PDFLesson
-            // If data.file is a File object (upload), append it.
-            // If it's a string (URL), append it too? Usually file upload expects file object.
-            // But if we are just passing URL, backend FileField might not accept it unless it's a valid file path or we use a different field.
-            // For now assume upload.
+        // DocumentLesson (PDF, DOCX, XLSX)
+        if (data.resourcetype === 'DocumentLesson' && data.file) {
             formData.append('file', data.file);
         }
 
@@ -159,6 +158,14 @@ export const lmsService = {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
+            onUploadProgress: (progressEvent) => {
+                if (onProgress && progressEvent.total) {
+                    const percentCompleted = Math.round(
+                        (progressEvent.loaded * 100) / progressEvent.total
+                    );
+                    onProgress(percentCompleted);
+                }
+            },
         });
         return response.data;
     },
@@ -180,8 +187,8 @@ export const lmsService = {
             if (data.video_url) formData.append('video_url', data.video_url);
         }
 
-        // PDFLesson
-        if (data.resourcetype === 'PDFLesson' && data.file instanceof File) {
+        // DocumentLesson (PDF, DOCX, XLSX)
+        if (data.resourcetype === 'DocumentLesson' && data.file instanceof File) {
             formData.append('file', data.file);
         }
 

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_polymorphic.serializers import PolymorphicSerializer
-from .models import Category, Course, Module, Lesson, VideoLesson, PDFLesson, QuizLesson, HTMLLesson, LiveLesson, Assignment
+from .models import Category, Course, Module, Lesson, VideoLesson, DocumentLesson, QuizLesson, HTMLLesson, LiveLesson, Assignment
 
 class CategorySerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
@@ -16,38 +16,95 @@ class CategorySerializer(serializers.ModelSerializer):
         return []
 
 class VideoLessonSerializer(serializers.ModelSerializer):
+    resourcetype = serializers.SerializerMethodField()
+    source_file_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = VideoLesson
-        fields = ['id', 'title', 'order', 'is_preview', 'video_url', 'duration', 'source_file', 'processing_status']
+        fields = ['id', 'title', 'order', 'module', 'is_preview', 'resourcetype', 'video_url', 'duration', 'source_file', 'source_file_url', 'processing_status']
         read_only_fields = ['processing_status', 'duration']
         extra_kwargs = {
             'source_file': {'write_only': True}
         }
+    
+    def get_resourcetype(self, obj):
+        return 'VideoLesson'
+    
+    def get_source_file_url(self, obj):
+        if obj.source_file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.source_file.url)
+            return obj.source_file.url
+        return None
 
-class PDFLessonSerializer(serializers.ModelSerializer):
+
+class DocumentLessonSerializer(serializers.ModelSerializer):
+    resourcetype = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
+    
     class Meta:
-        model = PDFLesson
-        fields = ['id', 'title', 'order', 'is_preview', 'file']
+        model = DocumentLesson
+        fields = [
+            'id', 'title', 'order', 'module', 'is_preview', 'resourcetype', 
+            'file', 'file_url', 'file_type', 'file_size'
+        ]
+        extra_kwargs = {
+            'file_type': {'read_only': True},
+            'file_size': {'read_only': True}
+        }
+    
+    def get_resourcetype(self, obj):
+        return 'DocumentLesson'
+    
+    def get_file_url(self, obj):
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+
 
 class QuizLessonSerializer(serializers.ModelSerializer):
+    resourcetype = serializers.SerializerMethodField()
+    
     class Meta:
         model = QuizLesson
-        fields = ['id', 'title', 'order', 'module', 'passing_score', 'duration_minutes', 'questions']
+        fields = ['id', 'title', 'order', 'module', 'is_preview', 'resourcetype', 'passing_score', 'duration_minutes', 'questions']
+    
+    def get_resourcetype(self, obj):
+        return 'QuizLesson'
 
 class HTMLLessonSerializer(serializers.ModelSerializer):
+    resourcetype = serializers.SerializerMethodField()
+    
     class Meta:
         model = HTMLLesson
-        fields = ['id', 'title', 'order', 'is_preview', 'content']
+        fields = ['id', 'title', 'order', 'module', 'is_preview', 'resourcetype', 'content']
+    
+    def get_resourcetype(self, obj):
+        return 'HTMLLesson'
 
 class LiveLessonSerializer(serializers.ModelSerializer):
+    resourcetype = serializers.SerializerMethodField()
+    
     class Meta:
         model = LiveLesson
-        fields = ['id', 'title', 'order', 'module', 'start_time', 'end_time', 'meeting_link', 'recording_url']
+        fields = ['id', 'title', 'order', 'module', 'is_preview', 'resourcetype', 'start_time', 'end_time', 'meeting_link', 'recording_url']
+    
+    def get_resourcetype(self, obj):
+        return 'LiveLesson'
 
 class AssignmentSerializer(serializers.ModelSerializer):
+    resourcetype = serializers.SerializerMethodField()
+    
     class Meta:
         model = Assignment
-        fields = ['id', 'title', 'order', 'module', 'due_date', 'points', 'file_submission_required']
+        fields = ['id', 'title', 'order', 'module', 'is_preview', 'resourcetype', 'due_date', 'points', 'file_submission_required']
+    
+    def get_resourcetype(self, obj):
+        return 'Assignment'
 
 # Base Lesson Serializer for the polymorphic mapping
 class LessonSerializer(serializers.ModelSerializer):
@@ -59,7 +116,7 @@ class LessonPolymorphicSerializer(PolymorphicSerializer):
     model_serializer_mapping = {
         Lesson: LessonSerializer,
         VideoLesson: VideoLessonSerializer,
-        PDFLesson: PDFLessonSerializer,
+        DocumentLesson: DocumentLessonSerializer,
         QuizLesson: QuizLessonSerializer,
         HTMLLesson: HTMLLessonSerializer,
         LiveLesson: LiveLessonSerializer,

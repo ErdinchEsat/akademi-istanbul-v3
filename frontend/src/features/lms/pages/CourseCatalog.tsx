@@ -7,6 +7,7 @@ import { Course, Category } from '@/types/lms';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types';
 import clsx from 'clsx';
+import { LazyImage } from '../../../components/ui/LazyImage';
 
 interface CourseCatalogProps {
   onCourseClick: (courseId: string) => void;
@@ -232,8 +233,12 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, viewMode, onClick }) =>
         onClick={onClick}
         className="bg-white rounded-2xl border border-gray-200 p-4 flex gap-6 hover:shadow-lg hover:border-indigo-200 transition-all cursor-pointer group"
       >
-        <div className="w-48 h-32 shrink-0 rounded-xl overflow-hidden relative">
-          <img src={imageUrl} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative">
+          <LazyImage
+            src={imageUrl}
+            alt={course.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
         </div>
         <div className="flex-1 flex flex-col justify-between">
           <div>
@@ -250,7 +255,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, viewMode, onClick }) =>
 
           <div className="flex items-end justify-between mt-4">
             <div className="flex items-center gap-4 text-sm text-gray-500">
-              <span className="flex items-center gap-1"><BookOpen size={16} /> {course.total_modules || 0} Modül</span>
+              <span className="flex items-center gap-1"><BookOpen size={16} /> {course.total_modules || 0} Hafta</span>
               <span className="flex items-center gap-1"><Award size={16} /> Sertifikalı</span>
             </div>
             <button className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-600 transition-colors">
@@ -297,7 +302,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, viewMode, onClick }) =>
         <div className="mt-auto pt-4 border-t border-gray-50">
           <div className="flex justify-between items-center text-xs text-gray-500">
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1"><Clock size={14} /> {course.total_modules || 0} Modül</span>
+              <span className="flex items-center gap-1"><Clock size={14} /> {course.total_modules || 0} Hafta</span>
             </div>
             <span className="font-bold text-indigo-600 flex items-center group-hover:translate-x-1 transition-transform">
               İncele <ChevronRight size={14} />

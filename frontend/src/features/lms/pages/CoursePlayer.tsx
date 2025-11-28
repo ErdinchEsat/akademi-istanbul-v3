@@ -48,16 +48,6 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ courseId, onBack }) => {
     setActiveLesson(lesson);
   };
 
-  const getVideoSrc = (lesson: Lesson) => {
-    if (lesson.video_url) return lesson.video_url;
-    // Note: source_file is usually not returned in read serializer unless configured, 
-    // but if it is, it might be a URL. 
-    // If backend returns 'file' or 'source_file' as URL:
-    // We need to check the actual response structure for VideoLesson.
-    // Assuming video_url is the primary way for now as per our previous edits.
-    return '';
-  };
-
   return (
     <div className="flex flex-col h-full bg-slate-50">
       {/* Player Header */}
@@ -87,7 +77,8 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ courseId, onBack }) => {
                   {activeLesson.resourcetype === 'VideoLesson' && (
                     <div className="aspect-video bg-slate-900 relative group overflow-hidden flex items-center justify-center">
                       {(() => {
-                        const url = activeLesson.video_url || activeLesson.source_file;
+                        // Priority: source_file_url (uploaded video) OR video_url (YouTube/Vimeo)
+                        const url = activeLesson.source_file_url || activeLesson.video_url;
                         if (!url) return <div className="text-white">Video kaynağı bulunamadı.</div>;
 
                         // Check for YouTube
@@ -152,21 +143,73 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ courseId, onBack }) => {
                     </div>
                   )}
 
-                  {activeLesson.resourcetype === 'PDFLesson' && (
-                    <div className="p-12 text-center">
-                      <FileText className="w-16 h-16 text-orange-500 mx-auto mb-4" />
-                      <h2 className="text-2xl font-bold mb-2">{activeLesson.title}</h2>
-                      <p className="text-gray-500 mb-6">PDF Dokümanı</p>
-                      {activeLesson.file && (
-                        <a
-                          href={activeLesson.file.startsWith('http') ? activeLesson.file : `http://localhost:8001${activeLesson.file}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-700 transition-colors"
-                        >
-                          <Download className="w-5 h-5" /> Dokümanı İndir / Görüntüle
-                        </a>
-                      )}
+                  {activeLesson.resourcetype === 'DocumentLesson' && (
+                    <div className="max-w-2xl mx-auto p-8">
+                      {/* Document Card */}
+                      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl shadow-xl overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+                          <div className="flex items-center justify-center mb-3">
+                            <div className="bg-white/20 backdrop-blur-sm p-4 rounded-full">
+                              <FileText className="w-12 h-12" />
+                            </div>
+                          </div>
+                          <h2 className="text-2xl font-bold text-center mb-2">{activeLesson.title}</h2>
+                          <p className="text-center text-indigo-100">Ders Materyali</p>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-8">
+                          {/* File Info */}
+                          {activeLesson.file_type && (
+                            <div className="flex items-center justify-center gap-6 mb-8">
+                              <div className="text-center">
+                                <div className="inline-flex items-center gap-2 bg-white px-6 py-3 rounded-xl shadow-md border border-indigo-100">
+                                  <span className="text-lg font-bold text-indigo-700">
+                                    {activeLesson.file_type.toUpperCase()}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">Dosya Formatı</p>
+                              </div>
+
+                              {activeLesson.file_size && (
+                                <div className="text-center">
+                                  <div className="inline-flex items-center gap-2 bg-white px-6 py-3 rounded-xl shadow-md border border-purple-100">
+                                    <span className="text-lg font-bold text-purple-700">
+                                      {(activeLesson.file_size / 1024 / 1024).toFixed(2)} MB
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-2">Dosya Boyutu</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Download Button */}
+                          {(activeLesson.file_url || activeLesson.file) && (
+                            <div className="text-center">
+                              <a
+                                href={activeLesson.file_url || activeLesson.file}
+                                download
+                                className="inline-flex items-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 group"
+                              >
+                                <Download className="w-6 h-6 group-hover:animate-bounce" />
+                                <span>Dokümanı İndir</span>
+                              </a>
+                              <p className="text-sm text-gray-500 mt-4">
+                                İndirme işlemi otomatik olarak başlayacak
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Helper Text */}
+                      <div className="mt-6 text-center">
+                        <p className="text-sm text-gray-500">
+                          💡 İpucu: Dosyayı indirdikten sonra ilgili uygulamayla açabilirsiniz
+                        </p>
+                      </div>
                     </div>
                   )}
 
@@ -235,7 +278,7 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ courseId, onBack }) => {
               Ders İçeriği
             </h3>
             <div className="text-xs text-gray-500">
-              {course.modules?.length || 0} Modül
+              {course.modules?.length || 0} Hafta
             </div>
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -259,7 +302,7 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ courseId, onBack }) => {
                     >
                       <div className="shrink-0">
                         {lesson.resourcetype === 'VideoLesson' && <PlayCircle size={16} />}
-                        {lesson.resourcetype === 'PDFLesson' && <FileText size={16} />}
+                        {lesson.resourcetype === 'DocumentLesson' && <FileText size={16} />}
                         {lesson.resourcetype === 'QuizLesson' && <HelpCircle size={16} />}
                         {lesson.resourcetype === 'LiveLesson' && <MonitorPlay size={16} />}
                         {lesson.resourcetype === 'Assignment' && <ClipboardList size={16} />}

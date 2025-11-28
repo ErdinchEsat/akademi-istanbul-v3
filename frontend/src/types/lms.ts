@@ -10,15 +10,19 @@ export interface Lesson {
     id: number;
     title: string;
     order: number;
-    resourcetype: 'VideoLesson' | 'PDFLesson' | 'QuizLesson' | 'HTMLLesson' | 'LiveLesson' | 'Assignment';
+    resourcetype: 'VideoLesson' | 'DocumentLesson' | 'QuizLesson' | 'HTMLLesson' | 'LiveLesson' | 'Assignment';
     is_preview?: boolean;
     // VideoLesson specific
     video_url?: string;
     duration?: string;
     processing_status?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
     source_file?: File; // For upload only
-    // PDFLesson specific
-    file?: string;
+    source_file_url?: string; // URL from backend for uploaded videos
+    // DocumentLesson specific (PDF, DOCX, XLSX)
+    file?: string | File;  // URL for display, File for upload
+    file_url?: string;  // Full URL from backend
+    file_type?: string;  // 'pdf' | 'docx' | 'xlsx' | etc
+    file_size?: number;  // In bytes
     // QuizLesson specific
     passing_score?: number;
     duration_minutes?: number;

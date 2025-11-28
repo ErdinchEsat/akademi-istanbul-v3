@@ -72,7 +72,9 @@ Amaç: İçerik sunumu ve video optimizasyonu.
 
     - [x] Modeller: Category -> Course -> Module -> Lesson.
 
-    - [x] django-polymorphic veya GenericFK ile Lesson tipleri: Video, PDF, Quiz, HTML.
+    - [x] django-polymorphic ile Lesson tipleri: VideoLesson, DocumentLesson, QuizLesson, HTMLLesson, LiveLesson, Assignment.
+    
+    - [x] Polymorphic serializers ve ViewSet'ler (create/update type conversion).
 
 - [x] 2.2. Video Transcoding Pipeline (Kritik Performans):
 
@@ -81,22 +83,38 @@ Amaç: İçerik sunumu ve video optimizasyonu.
     - [x] Celery Task: Yüklenen videoyu FFmpeg ile HLS (.m3u8) formatına çevir.
 
     - [x] CDN Entegrasyon simülasyonu (S3/MinIO public link - Yerel medya ile simüle edildi).
+    
+    - [x] YouTube embed video desteği (video_url field).
 
-[ ] 2.3. İlerleme Takibi (Progress Tracking):
+- [x] 2.3. Ders Materyali Yönetimi (Document Management):
 
-LessonProgress modeli.
+    - [x] DocumentLesson modeli (PDF/DOCX/XLSX desteği).
+    
+    - [x] File type ve size auto-detection.
+    
+    - [x] 5MB file size limit validation.
+    
+    - [x] Media file serving (DEBUG mode).
+    
+    - [x] Frontend: Multi-format upload UI (.pdf, .docx, .xlsx).
+    
+    - [x] Frontend: CoursePlayer document download with file info display.
 
-Video izleme süresinin saniyelik takibi ve backend'e "Heartbeat" gönderimi.
+- [ ] 2.4. İlerleme Takibi (Progress Tracking):
 
-Entegrasyon Testi: React Video Player yüklemesi -> İzleme -> Progress % güncellemesi.
+    LessonProgress modeli.
 
-[ ] 2.4. Stüdyo Rezervasyon Modülü:
+    Video izleme süresinin saniyelik takibi ve backend'e "Heartbeat" gönderimi.
 
-İçerik üreticileri için takvim ve rezervasyon sistemi.
+    Entegrasyon Testi: React Video Player yüklemesi -> İzleme -> Progress % güncellemesi.
 
-[ ] 2.5. Aktivasyon Kodu Testi (LMS Entegrasyonu):
+- [ ] 2.6. Stüdyo Rezervasyon Modülü:
 
-Belediye kodunun girilmesi ve ilgili eğitimlerin hesaba tanımlanmasının uçtan uca testi.
+    İçerik üreticileri için takvim ve rezervasyon sistemi.
+
+- [ ] 2.7. Aktivasyon Kodu Testi (LMS Entegrasyonu):
+
+    Belediye kodunun girilmesi ve ilgili eğitimlerin hesaba tanımlanmasının uçtan uca testi.
 
 
 📝 FAZ 3: ASSESSMENT & CERTIFICATION (Ölçme ve Değerlendirme)

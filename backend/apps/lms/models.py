@@ -63,8 +63,16 @@ class VideoLesson(Lesson):
         ('COMPLETED', 'Completed'),
         ('FAILED', 'Failed'),
     )
+    
+    from apps.core.validators import FileValidator
 
-    source_file = models.FileField(upload_to='course_videos/raw/', null=True, blank=True, help_text="Upload raw video file here")
+    source_file = models.FileField(
+        upload_to='course_videos/raw/', 
+        null=True, 
+        blank=True,
+        validators=[FileValidator.validate_video_file],
+        help_text="Upload raw video file (Max: 100MB, Formats: MP4, MOV, AVI, MKV, WEBM)"
+    )
     video_url = models.URLField(help_text="URL to the processed HLS stream", blank=True, null=True) # Repurposed as HLS URL
     duration = models.DurationField(null=True, blank=True)
     processing_status = models.CharField(max_length=20, choices=PROCESSING_STATUS_CHOICES, default='PENDING')
@@ -72,11 +80,41 @@ class VideoLesson(Lesson):
     class Meta:
         verbose_name = "Video Lesson"
 
-class PDFLesson(Lesson):
-    file = models.FileField(upload_to='course_pdfs/')
+class DocumentLesson(Lesson):
+    """Ders Materyali - PDF, DOCX, XLSX formatlarını destekler"""
+    from django.core.validators import FileExtensionValidator
+    from django.core.exceptions import ValidationError
+    
+    ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx']
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB in bytes
+    
+    def validate_file_size(file):
+        """5MB file size limit validator"""
+        if file.size > DocumentLesson.MAX_FILE_SIZE:
+            raise ValidationError(f'Dosya boyutu 5MB\'dan küçük olmalıdır. Mevcut boyut: {file.size / 1024 / 1024:.2f}MB')
+    
+    file = models.FileField(
+        upload_to='course_documents/',
+        validators=[
+            FileExtensionValidator(allowed_extensions=ALLOWED_EXTENSIONS),
+            validate_file_size
+        ],
+        help_text="PDF, Word (.doc, .docx) veya Excel (.xls, .xlsx) yükleyebilirsiniz (Max: 5MB)"
+    )
+    file_type = models.CharField(max_length=10, editable=False, blank=True)
+    file_size = models.BigIntegerField(null=True, blank=True, editable=False, help_text="Dosya boyutu (bytes)")
     
     class Meta:
-        verbose_name = "PDF Lesson"
+        verbose_name = "Document Lesson"
+        verbose_name_plural = "Document Lessons"
+    
+    def save(self, *args, **kwargs):
+        if self.file:
+            # Otomatik dosya tipi algılama
+            self.file_type = self.file.name.split('.')[-1].lower()
+            self.file_size = self.file.size
+        super().save(*args, **kwargs)
+
 
 class LiveLesson(Lesson):
     start_time = models.DateTimeField()

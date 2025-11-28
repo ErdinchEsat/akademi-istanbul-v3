@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Clock } from 'lucide-react';
 import { BarChart as ReBarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Tenant } from '../../types/auth';
@@ -17,7 +17,15 @@ const data = [
     { name: 'Paz', saat: 0.5 },
 ];
 
-const ActivityChart: React.FC<ActivityChartProps> = ({ currentTenant }) => {
+const ActivityChart: React.FC<ActivityChartProps> = React.memo(({ currentTenant }) => {
+    // Memoize bar color calculation to prevent unnecessary recalculation
+    const barStyle = useMemo(() => {
+        const color = currentTenant?.color;
+        if (color === 'emerald') return { fill: '#10b981' };
+        if (color === 'blue') return { fill: '#3b82f6' };
+        return { fill: '#6366f1' };
+    }, [currentTenant?.color]);
+
     return (
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex justify-between items-center mb-6">
@@ -47,13 +55,15 @@ const ActivityChart: React.FC<ActivityChartProps> = ({ currentTenant }) => {
                             fill={currentTenant ? `var(--color-${currentTenant.color}-500)` : '#6366f1'}
                             radius={[6, 6, 6, 6]}
                             barSize={40}
-                            style={{ fill: currentTenant?.color === 'emerald' ? '#10b981' : currentTenant?.color === 'blue' ? '#3b82f6' : '#6366f1' }}
+                            style={barStyle}
                         />
                     </ReBarChart>
                 </ResponsiveContainer>
             </div>
         </div>
     );
-};
+});
+
+ActivityChart.displayName = 'ActivityChart';
 
 export default ActivityChart;
